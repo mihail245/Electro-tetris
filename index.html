@@ -2,320 +2,510 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>⚡ Электро-Тетрис</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>⚡ Электро-Тетрис | Сопоставь формулу и ответ</title>
     <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
-            background-color: #1a1a1a;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0a0f1e 0%, #0c1225 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', 'Roboto', system-ui, -apple-system, sans-serif;
+            touch-action: manipulation;
+        }
+
+        /* игровой контейнер — мобильный портрет */
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 12px 8px;
+            background: rgba(10, 20, 30, 0.55);
+            border-radius: 56px;
+            padding: 16px 12px 20px;
+            backdrop-filter: blur(2px);
+            box-shadow: 0 20px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        /* шапка: счет, таймер, рекорд */
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #010a1aee;
+            padding: 10px 18px;
+            border-radius: 60px;
+            margin-bottom: 18px;
+            backdrop-filter: blur(4px);
+            font-weight: bold;
+            color: #b7f0ff;
+            text-shadow: 0 0 5px #0ae0ff;
+            box-shadow: inset 0 0 6px #2d6f8f, 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .stat {
+            background: #05182b;
+            padding: 5px 14px;
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.2rem;
+        }
+
+        .stat span:first-child {
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            color: #8fcbff;
+        }
+
+        .stat span:last-child {
+            font-size: 1.6rem;
+            font-weight: 800;
+            font-family: monospace;
+            color: #f0ff90;
+        }
+
+        /* игровое поле (падение блоков) */
+        .play-area {
+            background: #02121ed9;
+            border-radius: 32px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: inset 0 0 20px #00000055, 0 12px 25px black;
+            border: 1px solid #2ac3ff40;
+        }
+
+        .falling-zone {
+            background: #00000066;
+            border-radius: 28px;
+            min-height: 380px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
+            justify-content: flex-start;
+            gap: 14px;
+            padding: 16px 8px;
+            transition: all 0.1s;
         }
-        h1 {
-            margin-bottom: 10px;
-            color: #f1c40f;
-            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
-        }
-        #game-container {
-            display: flex;
-            gap: 20px;
-            background: #2c3e50;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-        canvas {
-            border: 4px solid #34495e;
-            background: #111;
-        }
-        #ui {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-widh: 200px;
-        }
-        .info-box {
-            background: #34495e;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-        }
-        .info-box h2 {
-            margin: 0 0 10px 0;
-            font-size: 18px;
-            color: #ecf0f1;
-        }
-        .score {
-            font-size: 24px;
+
+        /* динамические падающие блоки */
+        .fall-block {
+            background: linear-gradient(135deg, #ffd966, #ffb347);
+            width: 92%;
+            border-radius: 60px;
+            padding: 14px 10px;
+            text-align: center;
+            font-size: 1.35rem;
             font-weight: bold;
-            color: #2ecc71;
+            color: #1f2a0e;
+            box-shadow: 0 8px 0 #a85f00;
+            transform: translateY(0);
+            transition: transform 0.08s linear;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            backdrop-filter: blur(2px);
         }
-        .controls {
-            font-size: 14px;
-            color: #bdc3c7;
-            line-height: 1.5;
+
+        /* зона ответов (сопоставления внизу) */
+        .answers-area {
+            background: #021e2ed9;
+            border-radius: 40px;
+            padding: 16px 8px;
+            margin-top: 6px;
+        }
+
+        .answers-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            padding: 5px;
+        }
+
+        .answer-card {
+            background: #1e2f42;
+            background-image: linear-gradient(145deg, #283b53, #14212e);
+            flex: 1 0 auto;
+            min-width: 130px;
+            max-width: 180px;
+            text-align: center;
+            padding: 14px 8px;
+            border-radius: 48px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #d4f1ff;
+            box-shadow: 0 6px 0 #0a121c;
+            transition: 0.07s linear;
+            touch-action: manipulation;
+            cursor: pointer;
+            border: 1px solid #5ad0ff80;
+            font-family: monospace;
+        }
+
+        .answer-card:active {
+            transform: scale(0.96);
+            box-shadow: 0 2px 0 #0a121c;
+        }
+
+        /* сообщение о победе / ошибке */
+        .game-message {
+            text-align: center;
+            margin-top: 12px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            padding: 8px;
+            border-radius: 60px;
+            background: #000000aa;
+            backdrop-filter: blur(6px);
+            color: #ffefb9;
+        }
+
+        .restart-btn {
+            background: #f5a623;
+            border: none;
+            width: 80%;
+            margin: 12px auto 0;
+            display: block;
+            padding: 12px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1.3rem;
+            color: #1a2a1f;
+            box-shadow: 0 5px 0 #a14800;
+            transition: 0.07s linear;
+            touch-action: manipulation;
+            cursor: pointer;
+        }
+
+        .restart-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #a14800;
+        }
+
+        @media (max-width: 480px) {
+            .fall-block { font-size: 1rem; padding: 12px 6px; }
+            .answer-card { font-size: 0.95rem; padding: 10px 6px; min-width: 110px; }
+            .stat span:last-child { font-size: 1.3rem; }
+        }
+
+        .highlight {
+            background: #79ff9e;
+            color: #022000;
+            box-shadow: 0 0 15px #aaffaa;
+            transition: 0.05s;
         }
     </style>
 </head>
 <body>
+<div class="game-container">
+    <div class="stats-bar">
+        <div class="stat"><span>⚡ Счёт</span> <span id="scoreValue">0</span></div>
+        <div class="stat"><span>⏱️ Время</span> <span id="timerValue">00</span></div>
+        <div class="stat"><span>🏆 Рекорд</span> <span id="highScoreValue">0</span></div>
+    </div>
 
-    <h1>⚡ Электро-Тетрис</h1>
-    <div id="game-container">
-        <canvas id="gameCanvas" width="400" height="600"></canvas>
-        <div id="ui">
-            <div class="info-box">
-                <h2>Счёт</h2>
-                <div class="score" id="score">0</div>
-            </div>
-            <div class="info-box">
-                <h2>Управление</h2>
-                <div class="controls">
-                    ⬅️ ➡️ — Движение<br>
-                    ⬇️ — Ускорить падение<br>
-                    🔄 Пробел — Поменять местами блоки в паре
-                </div>
-            </div>
-            <div class="info-box" style="flex-grow: 1;">
-                <h2>Шпаргалка</h2>
-                <div class="controls" style="font-size: 12px;">
-                    • P = I² · R (Мощность)<br>
-                    • U = I · R (Закон Ома)<br>
-                    • Q = I · t (Заряд)<br>
-                    • A = U · I · t (Работа)
-                </div>
-            </div>
+    <div class="play-area">
+        <div id="fallZone" class="falling-zone">
+            <!-- динамически падающие блоки с формулой -->
         </div>
     </div>
 
+    <div class="answers-area">
+        <div id="answersContainer" class="answers-grid">
+            <!-- блоки с числовыми ответами (power) -->
+        </div>
+    </div>
+
+    <div id="gameMessage" class="game-message">👇 Сопоставь формулу с мощностью!</div>
+    <button id="restartButton" class="restart-btn">🔁 Новая игра</button>
+</div>
+
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreElement = document.getElementById('score');
-
-const COLS = 8;
-const ROWS = 12;
-const BLOCK_SIZE = 50;
-
-let score = 0;
-let grid = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-
-// База данных формул и их решений
-const database = [
-    { formula: "P=I²·R", conditions: "I=2А, R=5Ом", answer: "20 Вт" },
-    { formula: "P=I²·R", conditions: "I=3А, R=2Ом", answer: "18 Вт" },
-    { formula: "U=I·R",  conditions: "I=2А, R=10Ом", answer: "20 В" },
-    { formula: "U=I·R",  conditions: "I=5А, R=4Ом", answer: "20 В" },
-    { formula: "Q=I·t",  conditions: "I=2А, t=10с", answer: "20 Кл" },
-    { formula: "A=U·I·t",conditions: "U=10В, I=2А, t=1с", answer: "20 Дж" }
-];
-
-// Падающий элемент (состоит из двух блоков: формулы и значения)
-let currentPiece = null;
-let dropCounter = 0;
-let dropInterval = 1000; // 1 секунда
-let lastTime = 0;
-let gameOver = false;
-
-function createPiece() {
-    // Случайно выбираем задачу из базы данных
-    const task = database[Math.floor(Math.random() * database.length)];
+    // ---------- ЭЛЕКТРО-ТЕТРИС: формулы мощности и расчеты ----------
+    // Возможные условия (ток I, сопротивление R, напряжение U)
+    // Для каждой формулы генерируем свой набор переменных, но чтобы ответы были логичны,
+    // используем предопределенные варианты «условий» для трёх типов формул:
+    // P = I^2 * R ; P = U^2 / R ; P = U * I
+    // Также добавим P = I * U (та же, но разнообразие)
+    // Для сохранения игры в режиме "сопоставь падающий блок с правильным ответом"
+    // Будем создавать падающие блоки, каждый содержит: текст формулы + скрытые параметры (I,R или U,R или U,I)
+    // Внизу будут ответы (числовые значения мощности), которые генерируются исходя из условий текущего блока.
+    // Чтобы игра была обучающей: У каждой формулы правильный ответ высчитывается динамически в момент создания блока.
+    // Игрок должен кликнуть на блок-ответ с числом, равным рассчитанной мощности.
     
-    // Случайная колонка для спавна (чтобы поместилось 2 блока в ширину)
-    const col = Math.floor(Math.random() * (COLS - 1));
-    
-    currentPiece = {
-        x: col,
-        y: 0,
-        // Блок 1: Формула и условия
-        b1: { type: 'formula', text: task.formula, subtext: task.conditions, id: task.answer },
-        // Блок 2: Ответ
-        b2: { type: 'value', text: task.answer, subtext: '', id: task.answer }
-    };
+    // Словарь шаблонов формул и функций расчета
+    const FORMULA_TEMPLATES = [
+        { text: "P = I²·R",     calc: (vars) => vars.I * vars.I * vars.R,     varsNeeded: ["I","R"] },
+        { text: "P = U² / R",   calc: (vars) => (vars.U * vars.U) / vars.R,   varsNeeded: ["U","R"] },
+        { text: "P = U·I",      calc: (vars) => vars.U * vars.I,               varsNeeded: ["U","I"] },
+        { text: "P = I·U",      calc: (vars) => vars.U * vars.I,               varsNeeded: ["U","I"] }
+    ];
 
-    // Если место уже занято — игра окончена
-    if (grid[0][col] || grid[0][col+1]) {
-        gameOver = true;
-        alert("Игра окончена! Энергосистема перегружена. Ваш счёт: " + score);
+    // Генерация случайных значений в электро-стиле (I ~ 1..6A, U ~ 5..36V, R ~ 2..20 Ом)
+    function getRandomVar(varName) {
+        if(varName === "I") return Math.floor(Math.random() * 8) + 1;   // 1..8 A
+        if(varName === "U") return Math.floor(Math.random() * 32) + 6;  // 6..37 V
+        if(varName === "R") return Math.floor(Math.random() * 20) + 2;  // 2..21 Ом
+        return 1;
     }
-}
 
-function drawBlock(x, y, block) {
-    if (!block) return;
-
-    ctx.fillStyle = block.type === 'formula' ? '#27ae60' : '#2980b9';
-    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
-    
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    
-    if (block.type === 'formula') {
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(block.text, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 20);
-        ctx.font = '9px sans-serif';
-        ctx.fillStyle = '#e8f8f5';
-        ctx.fillText(block.subtext, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 38);
-    } else {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillText(block.text, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 30);
-    }
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Сетка фона
-    ctx.strokeStyle = '#222';
-    for(let i=0; i<COLS; i++) {
-        for(let j=0; j<ROWS; j++) {
-            ctx.strokeRect(i*BLOCK_SIZE, j*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    // Создаёт новый падающий блок: формула, значения переменных, правильный ответ
+    function createFallingBlock() {
+        const template = FORMULA_TEMPLATES[Math.floor(Math.random() * FORMULA_TEMPLATES.length)];
+        const vars = {};
+        for(let v of template.varsNeeded) {
+            vars[v] = getRandomVar(v);
         }
-    }
-
-    // Отрисовка зафиксированных блоков
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            drawBlock(c, r, grid[r][c]);
-        }
-    }
-
-    // Отрисовка падающего элемента
-    if (currentPiece) {
-        drawBlock(currentPiece.x, currentPiece.y, currentPiece.b1);
-        drawBlock(currentPiece.x + 1, currentPiece.y, currentPiece.b2);
-    }
-}
-
-function moveLeft() {
-    if (currentPiece.x > 0 && !grid[currentPiece.y][currentPiece.x - 1]) {
-        currentPiece.x--;
-    }
-}
-
-function moveRight() {
-    if (currentPiece.x < COLS - 2 && !grid[currentPiece.y][currentPiece.x + 2]) {
-        currentPiece.x++;
-    }
-}
-
-function flipPiece() {
-    // Меняем местами левый и правый блоки в паре
-    const temp = currentPiece.b1;
-    currentPiece.b1 = currentPiece.b2;
-    currentPiece.b2 = temp;
-}
-
-function drop() {
-    // Проверяем, можно ли опуститься ниже (для обоих блоков)
-    if (currentPiece.y < ROWS - 1 && 
-        !grid[currentPiece.y + 1][currentPiece.x] && 
-        !grid[currentPiece.y + 1][currentPiece.x + 1]) {
-        currentPiece.y++;
-    } else {
-        // Фиксируем блоки на сетке
-        grid[currentPiece.y][currentPiece.x] = currentPiece.b1;
-        grid[currentPiece.y][currentPiece.x + 1] = currentPiece.b2;
+        const correctPower = parseFloat(template.calc(vars).toFixed(2));
+        // Для красивого отображения условий: сделаем подпись мелким шрифтом
+        let conditionStr = "";
+        if(template.varsNeeded.includes("I") && template.varsNeeded.includes("R")) conditionStr = ` (I=${vars.I}A, R=${vars.R}Ω)`;
+        else if(template.varsNeeded.includes("U") && template.varsNeeded.includes("R")) conditionStr = ` (U=${vars.U}V, R=${vars.R}Ω)`;
+        else if(template.varsNeeded.includes("U") && template.varsNeeded.includes("I")) conditionStr = ` (U=${vars.U}V, I=${vars.I}A)`;
         
-        applyGravity();
-        checkMatches();
-        createPiece();
+        // текст для отображения: формула + параметры
+        const displayText = `${template.text}${conditionStr}`;
+        return {
+            id: Math.random(),
+            formulaText: displayText,
+            correctValue: correctPower,
+            templateIndex: template.text
+        };
     }
-    dropCounter = 0;
-}
 
-// Физика падения блоков вниз, если под ними пусто
-function applyGravity() {
-    let moved = false;
-    for (let r = ROWS - 2; r >= 0; r--) {
-        for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] && !grid[r + 1][c]) {
-                grid[r + 1][c] = grid[r][c];
-                grid[r][c] = null;
-                moved = true;
+    // Генерация вариантов ответов (3 или 4 блока внизу, включая правильный + правдоподобные дистракторы)
+    // На основе правильного значения генерируем 3 дополнительных ответа (отклонения в пределах ±30% и перекрестные)
+    function generateAnswerOptions(correctPower) {
+        let options = new Set();
+        options.add(correctPower);
+        // создаём 3 уникальных дистрактора (не равных правильному)
+        while(options.size < 4) {
+            let offset = (Math.random() * 0.8 + 0.2); // коэф 0.2..1.0
+            let sign = Math.random() > 0.5 ? 1 : -1;
+            let distractor;
+            if(Math.random() > 0.4) {
+                // смещение в процентах
+                let factor = 1 + (sign * (Math.random() * 0.45 + 0.1));
+                distractor = correctPower * factor;
+            } else {
+                // смещение +- от 0.8 до 8
+                distractor = correctPower + (sign * (Math.random() * 7 + 1));
+            }
+            distractor = parseFloat(distractor.toFixed(2));
+            if(distractor <= 0) distractor = correctPower * 0.7 + 0.5;
+            distractor = parseFloat(distractor.toFixed(2));
+            if(distractor !== correctPower && !isNaN(distractor) && distractor > 0) {
+                options.add(distractor);
             }
         }
-    }
-    if (moved) applyGravity(); // Рекурсивно опускаем, пока всё не упадет
-}
-
-function checkMatches() {
-    let toDelete = [];
-
-    // Проверка по горизонтали
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS - 1; c++) {
-            let b1 = grid[r][c];
-            let b2 = grid[r][c+1];
-            if (b1 && b2 && b1.type !== b2.type && b1.id === b2.id) {
-                toDelete.push({r, c}, {r, c: c+1});
-            }
+        // перемешаем массив
+        let optsArray = Array.from(options);
+        for(let i = optsArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [optsArray[i], optsArray[j]] = [optsArray[j], optsArray[i]];
         }
+        return optsArray;
     }
 
-    // Проверка по вертикали
-    for (let r = 0; r < ROWS - 1; r++) {
-        for (let c = 0; c < COLS; c++) {
-            let b1 = grid[r][c];
-            let b2 = grid[r+1][c];
-            if (b1 && b2 && b1.type !== b2.type && b1.id === b2.id) {
-                toDelete.push({r, c}, {r: r+1, c});
-            }
-        }
-    }
-
-    // Удаление совпадений
-    if (toDelete.length > 0) {
-        toDelete.forEach(cell => {
-            grid[cell.r][cell.c] = null;
-        });
-        score += toDelete.length * 50;
-        scoreElement.innerText = score;
-        
-        // После удаления блоков запускаем гравитацию снова
-        applyGravity();
-        // И проверяем на новые совпадения (каскад)
-        checkMatches();
-    }
-}
-
-// Управление кнопками
-document.addEventListener('keydown', event => {
-    if (gameOver) return;
+    // ИГРОВОЕ СОСТОЯНИЕ
+    let currentBlock = null;           // текущий активный падающий блок (один за раз)
+    let currentAnswers = [];            // массив чисел для кнопок внизу
+    let score = 0;
+    let highScore = localStorage.getItem("electroHighScore") ? parseInt(localStorage.getItem("electroHighScore")) : 0;
+    let timeLeft = 25;                  // секунд на один блок (таймер давления)
+    let timerInterval = null;
+    let gameActive = true;              // игра не закончена (пока жива)
+    let waitingForNext = false;         // пауза между блоками
     
-    if (event.key === 'ArrowLeft') {
-        moveLeft();
-    } else if (event.key === 'ArrowRight') {
-        moveRight();
-    } else if (event.key === 'ArrowDown') {
-        drop();
-    } else if (event.key === ' ') { // Пробел
-        flipPiece();
-        event.preventDefault();
+    // DOM элементы
+    const fallZoneEl = document.getElementById("fallZone");
+    const answersContainer = document.getElementById("answersContainer");
+    const scoreSpan = document.getElementById("scoreValue");
+    const timerSpan = document.getElementById("timerValue");
+    const highScoreSpan = document.getElementById("highScoreValue");
+    const gameMessageDiv = document.getElementById("gameMessage");
+    const restartBtn = document.getElementById("restartButton");
+    
+    highScoreSpan.innerText = highScore;
+    
+    // Обновление UI: отобразить падающий блок + кнопки ответов
+    function renderGame() {
+        if(!gameActive) return;
+        // отрисовка падающего блока
+        if(currentBlock) {
+            fallZoneEl.innerHTML = `<div class="fall-block">⚡ ${currentBlock.formulaText} ⚡</div>`;
+        } else {
+            fallZoneEl.innerHTML = `<div style="color:#bbb; text-align:center; padding:40px;">⟳ загрузка...</div>`;
+        }
+        // отрисовка ответов
+        if(currentAnswers.length) {
+            answersContainer.innerHTML = currentAnswers.map(val => 
+                `<div class="answer-card" data-value="${val}">🔌 ${val} Вт</div>`
+            ).join('');
+            // добавим обработчики
+            document.querySelectorAll('.answer-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if(!gameActive || waitingForNext || !currentBlock) return;
+                    const selectedValue = parseFloat(card.getAttribute('data-value'));
+                    handleAnswer(selectedValue);
+                });
+                // для тач-фидбек
+                card.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if(!gameActive || waitingForNext || !currentBlock) return;
+                    const selectedValue = parseFloat(card.getAttribute('data-value'));
+                    handleAnswer(selectedValue);
+                });
+            });
+        } else {
+            answersContainer.innerHTML = `<div class="answer-card" style="background:#445;">---</div>`;
+        }
     }
-});
-
-function update(time = 0) {
-    if (gameOver) return;
-
-    const deltaTime = time - lastTime;
-    lastTime = time;
-
-    dropCounter += deltaTime;
-    if (dropCounter > dropInterval) {
-        drop();
+    
+    // Обработка ответа пользователя
+    function handleAnswer(selected) {
+        if(!gameActive || waitingForNext || !currentBlock) return;
+        const isCorrect = (Math.abs(selected - currentBlock.correctValue) < 0.01);
+        if(isCorrect) {
+            // Успех! увеличить счёт, добавить бонус времени, перейти к следующему блоку
+            score++;
+            scoreSpan.innerText = score;
+            if(score > highScore) {
+                highScore = score;
+                highScoreSpan.innerText = highScore;
+                localStorage.setItem("electroHighScore", highScore);
+                gameMessageDiv.innerHTML = "🎉 НОВЫЙ РЕКОРД! +1 ⚡";
+            } else {
+                gameMessageDiv.innerHTML = "✅ Верно! +1 балл! ⚡";
+            }
+            // добавляем бонус времени 3 секунды (но не более 10)
+            timeLeft = Math.min(timeLeft + 3, 13);
+            updateTimerDisplay();
+            // переходим к следующему блоку
+            goToNextBlock();
+        } else {
+            // Ошибка: штраф - время уменьшается, сообщение
+            gameMessageDiv.innerHTML = `❌ Ошибка! Правильный ответ: ${currentBlock.correctValue} Вт. Штраф -2с`;
+            timeLeft = Math.max(timeLeft - 2, 1);
+            updateTimerDisplay();
+            if(timeLeft <= 0) {
+                gameOver("Время вышло!");
+            } else {
+                // небольшая анимация мигания на блоке ответа
+                const cards = document.querySelectorAll('.answer-card');
+                cards.forEach(c => {
+                    if(parseFloat(c.getAttribute('data-value')) === currentBlock.correctValue) {
+                        c.classList.add('highlight');
+                        setTimeout(() => c.classList.remove('highlight'), 400);
+                    }
+                });
+                // но блок остаётся тем же, игрок пробует снова, таймер тикает
+            }
+        }
     }
-
-    draw();
-    requestAnimationFrame(update);
-}
-
-// Старт игры
-createPiece();
-update();
+    
+    // переход к новому блоку (генерация новых данных)
+    function goToNextBlock() {
+        if(!gameActive) return;
+        waitingForNext = true;
+        // сброс таймера
+        if(timerInterval) clearInterval(timerInterval);
+        // генерируем новый блок и ответы
+        currentBlock = createFallingBlock();
+        currentAnswers = generateAnswerOptions(currentBlock.correctValue);
+        // сброс времени до стандарта (8-12 секунд, динамика в зависимости от счета)
+        let baseTime = Math.max(8, 13 - Math.floor(score / 7));
+        timeLeft = Math.min(baseTime, 14);
+        updateTimerDisplay();
+        renderGame();
+        // запуск таймера
+        startTimer();
+        waitingForNext = false;
+    }
+    
+    function startTimer() {
+        if(timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if(!gameActive || waitingForNext) return;
+            if(timeLeft <= 0) {
+                clearInterval(timerInterval);
+                gameOver("⌛ Время истекло!");
+            } else {
+                timeLeft--;
+                updateTimerDisplay();
+                if(timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    gameOver("⌛ Время истекло!");
+                }
+            }
+        }, 1000);
+    }
+    
+    function updateTimerDisplay() {
+        timerSpan.innerText = timeLeft < 10 ? `0${timeLeft}` : `${timeLeft}`;
+    }
+    
+    function gameOver(reason) {
+        if(!gameActive) return;
+        gameActive = false;
+        if(timerInterval) clearInterval(timerInterval);
+        gameMessageDiv.innerHTML = `💀 ${reason} 💀  Игра окончена! Счёт: ${score}. Нажми "Новая игра"`;
+        fallZoneEl.innerHTML = `<div style="text-align:center; color:#ff9966; padding:25px;">⚡ GAME OVER ⚡</div>`;
+        answersContainer.innerHTML = `<div class="answer-card" style="background:#330000;">🔴 Игра завершена</div>`;
+        waitingForNext = true;
+    }
+    
+    function resetAndRestart() {
+        // остановка всего
+        if(timerInterval) clearInterval(timerInterval);
+        gameActive = true;
+        waitingForNext = false;
+        score = 0;
+        scoreSpan.innerText = "0";
+        timeLeft = 12;
+        updateTimerDisplay();
+        // высокий рекорд из localStorage уже загружен, но при рестарте не обнуляем
+        highScore = parseInt(localStorage.getItem("electroHighScore")) || 0;
+        highScoreSpan.innerText = highScore;
+        // генерируем первый блок
+        currentBlock = createFallingBlock();
+        currentAnswers = generateAnswerOptions(currentBlock.correctValue);
+        renderGame();
+        gameMessageDiv.innerHTML = "✨ Новая игра! Сопоставляй быстро! ✨";
+        startTimer();
+    }
+    
+    // инициализация игры
+    function initGame() {
+        resetAndRestart();
+    }
+    
+    restartBtn.addEventListener('click', () => {
+        if(timerInterval) clearInterval(timerInterval);
+        resetAndRestart();
+    });
+    
+    // Старт
+    initGame();
+    
+    // дополнительная обработка касаний для падающего блока (не нужно)
+    // поддержка предотвращения прокрутки
+    document.body.addEventListener('touchmove', (e) => {
+        if(e.target.closest('.answer-card') || e.target.closest('.fall-block')) {
+            // небольшое предотвращение для удобства клика
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // также предотвpaщаем zoom двойным тапом
 </script>
-
 </body>
 </html>
