@@ -2,491 +2,320 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
-    <title>⚡ Электро-Тетрис Ultra Smooth</title>
+    <title>⚡ Электро-Тетрис</title>
     <style>
-        :root {
-            --neon-blue: #00f0ff;
-            --neon-purple: #bd00ff;
-            --neon-pink: #ff0055;
-            --neon-yellow: #fffb00;
-        }
-
         body {
-            background-color: #05050b;
+            background-color: #1a1a1a;
             color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            height: 100vh;
             margin: 0;
-            overflow: hidden;
-            touch-action: none;
-            -webkit-user-select: none;
-            user-select: none;
         }
-
         h1 {
-            color: var(--neon-blue);
-            text-shadow: 0 0 10px var(--neon-blue);
-            margin: 10px 0 5px 0;
-            font-size: 1.4rem;
-            letter-spacing: 2px;
+            margin-bottom: 10px;
+            color: #f1c40f;
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
         }
-
-        .game-container {
+        #game-container {
+            display: flex;
+            gap: 20px;
+            background: #2c3e50;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            border: 4px solid #34495e;
+            background: #111;
+        }
+        #ui {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            background: rgba(15, 15, 25, 0.9);
-            padding: 12px;
-            border-radius: 16px;
-            border: 2px solid var(--neon-purple);
-            box-shadow: 0 0 25px rgba(189, 0, 255, 0.25);
-        }
-
-        .stats-panel {
-            display: flex;
             justify-content: space-between;
-            width: 100%;
-            margin-bottom: 10px;
-            gap: 10px;
+            min-widh: 200px;
         }
-
-        .stat-box {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--neon-pink);
-            padding: 6px 10px;
-            border-radius: 8px;
-            flex: 1;
-            text-align: center;
+        .info-box {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
         }
-
-        .stat-box.energy-box { border-color: var(--neon-yellow); }
-        .stat-label { font-size: 0.65rem; color: var(--neon-pink); text-transform: uppercase; margin-bottom: 2px; }
-        .energy-box .stat-label { color: var(--neon-yellow); }
-        .stat-value { font-size: 1.1rem; font-weight: bold; }
-
-        .energy-bar-container {
-            width: 100%;
-            height: 8px;
-            background: #111;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 4px;
-            border: 1px solid rgba(255, 251, 0, 0.2);
+        .info-box h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #ecf0f1;
         }
-
-        .energy-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #fffb00, #ff9900);
-            box-shadow: 0 0 8px var(--neon-yellow);
-            transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2ecc71;
         }
-
-        canvas {
-            border: 3px solid var(--neon-blue);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
-            background-color: #0b0b14;
-            max-width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-
-        .hint {
-            font-size: 0.65rem;
-            color: #555;
-            margin-top: 8px;
-            text-align: center;
-            line-height: 1.4;
+        .controls {
+            font-size: 14px;
+            color: #bdc3c7;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
 
-    <h1>⚡ ELECTRO-TETRIS</h1>
-
-    <div class="game-container">
-        <div class="stats-panel">
-            <div class="stat-box">
-                <div class="stat-label">Счет</div>
-                <div id="score" class="stat-value">0</div>
+    <h1>⚡ Электро-Тетрис</h1>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="ui">
+            <div class="info-box">
+                <h2>Счёт</h2>
+                <div class="score" id="score">0</div>
             </div>
-            <div class="stat-box energy-box">
-                <div class="stat-label">Заряд</div>
-                <div class="energy-bar-container">
-                    <div id="energy" class="energy-bar"></div>
+            <div class="info-box">
+                <h2>Управление</h2>
+                <div class="controls">
+                    ⬅️ ➡️ — Движение<br>
+                    ⬇️ — Ускорить падение<br>
+                    🔄 Пробел — Поменять местами блоки в паре
                 </div>
             </div>
-        </div>
-
-        <canvas id="tetris" width="240" height="400"></canvas>
-        
-        <div class="hint">
-            Тап — крутить | Свайп влево/вправо — двигать<br>
-            Свайп вниз — ускорить | Свайп вверх — уронить
+            <div class="info-box" style="flex-grow: 1;">
+                <h2>Шпаргалка</h2>
+                <div class="controls" style="font-size: 12px;">
+                    • P = I² · R (Мощность)<br>
+                    • U = I · R (Закон Ома)<br>
+                    • Q = I · t (Заряд)<br>
+                    • A = U · I · t (Работа)
+                </div>
+            </div>
         </div>
     </div>
 
 <script>
-const canvas = document.getElementById('tetris');
-const context = canvas.getContext('2d');
-const BLOCK_SIZE = 20;
-context.scale(BLOCK_SIZE, BLOCK_SIZE);
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+
+const COLS = 8;
+const ROWS = 12;
+const BLOCK_SIZE = 50;
 
 let score = 0;
-let energy = 0;
-const COLS = 12;
-const ROWS = 20;
+let grid = Array(ROWS).fill().map(() => Array(COLS).fill(null));
 
-const COLORS = [
-    null,
-    '#00f0ff', // I
-    '#fffb00', // O
-    '#bd00ff', // T
-    '#ff0055', // S
-    '#00ff66', // Z
-    '#ff9900', // J
-    '#0066ff'  // L
+// База данных формул и их решений
+const database = [
+    { formula: "P=I²·R", conditions: "I=2А, R=5Ом", answer: "20 Вт" },
+    { formula: "P=I²·R", conditions: "I=3А, R=2Ом", answer: "18 Вт" },
+    { formula: "U=I·R",  conditions: "I=2А, R=10Ом", answer: "20 В" },
+    { formula: "U=I·R",  conditions: "I=5А, R=4Ом", answer: "20 В" },
+    { formula: "Q=I·t",  conditions: "I=2А, t=10с", answer: "20 Кл" },
+    { formula: "A=U·I·t",conditions: "U=10В, I=2А, t=1с", answer: "20 Дж" }
 ];
 
-function createMatrix(w, h) {
-    const matrix = [];
-    while (h--) matrix.push(new Array(w).fill(0));
-    return matrix;
-}
+// Падающий элемент (состоит из двух блоков: формулы и значения)
+let currentPiece = null;
+let dropCounter = 0;
+let dropInterval = 1000; // 1 секунда
+let lastTime = 0;
+let gameOver = false;
 
-let arena = createMatrix(COLS, ROWS);
-
-// Объект игрока теперь хранит логические координаты (целые) и визуальные (дробные)
-const player = {
-    pos: {x: 0, y: 0},       // Логическая позиция в сетке
-    visualX: 0,              // Текущая плавная X координата для отрисовки
-    visualY: 0,              // Текущая плавная Y координата для отрисовки
-    matrix: null,
-    rotation: 0,             // Текущий угол визуального поворота в радианах
-    visualRotation: 0,       // Плавный угол для отрисовки
-    dropSpeed: 1.0,          // Клеток в секунду (базовая скорость)
-    isUserDropping: false    // Флаг ускорения при свайпе вниз
-};
-
-function createPiece(type) {
-    if (type === 'I') return [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]];
-    else if (type === 'L') return [[0,2,0],[0,2,0],[0,2,2]];
-    else if (type === 'J') return [[0,3,0],[0,3,0],[3,3,0]];
-    else if (type === 'O') return [[4,4],[4,4]];
-    else if (type === 'Z') return [[5,5,0],[0,5,5],[0,0,0]];
-    else if (type === 'S') return [[0,6,6],[6,6,0],[0,0,0]];
-    else if (type === 'T') return [[0,7,0],[7,7,7],[0,0,0]];
-}
-
-function collide(arena, player, offset = {x: 0, y: 0}) {
-    const m = player.matrix;
-    const o = player.pos;
-    for (let y = 0; y < m.length; ++y) {
-        for (let x = 0; x < m[y].length; ++x) {
-            if (m[y][x] !== 0) {
-                let nextX = x + o.x + offset.x;
-                let nextY = y + o.y + offset.y;
-                if (nextX < 0 || nextX >= COLS || nextY >= ROWS) return true;
-                if (nextY >= 0 && arena[nextY][nextX] !== 0) return true;
-            }
-        }
-    }
-    return false;
-}
-
-function merge(arena, player) {
-    player.matrix.forEach((row, y) => {
-        row.forEach((value, x) => {
-            if (value !== 0) {
-                let targetY = y + player.pos.y;
-                if (targetY >= 0) arena[targetY][x + player.pos.x] = value;
-            }
-        });
-    });
-}
-
-function playerMove(dir) {
-    player.pos.x += dir;
-    if (collide(arena, player)) {
-        player.pos.x -= dir;
-    }
-}
-
-function playerRotate(dir) {
-    const pos = player.pos.x;
-    let offset = 1;
-    rotateMatrix(player.matrix, dir);
-    while (collide(arena, player)) {
-        player.pos.x += offset;
-        offset = -(offset + (offset > 0 ? 1 : -1));
-        if (offset > player.matrix[0].length) {
-            rotateMatrix(player.matrix, -dir);
-            player.pos.x = pos;
-            return;
-        }
-    }
-    // Запускаем плавную анимацию вращения
-    player.rotation += dir * Math.PI / 2;
-}
-
-function rotateMatrix(matrix, dir) {
-    for (let y = 0; y < matrix.length; ++y) {
-        for (let x = 0; x < y; ++x) {
-            [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-        }
-    }
-    if (dir > 0) matrix.forEach(row => row.reverse());
-    else matrix.reverse();
-}
-
-function playerHardDrop() {
-    while (!collide(arena, player, {x: 0, y: 1})) {
-        player.pos.y++;
-    }
-    // Принудительно выравниваем визуал для мгновенной фиксации
-    player.visualY = player.pos.y;
-    lockPlayer();
-}
-
-function lockPlayer() {
-    merge(arena, player);
-    playerReset();
-    arenaSweep();
-    updateScore();
-}
-
-function playerReset() {
-    const pieces = 'ILJSZOT';
-    player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
-    player.pos.y = 0;
-    player.pos.x = (COLS / 2 | 0) - (player.matrix[0].length / 2 | 0);
+function createPiece() {
+    // Случайно выбираем задачу из базы данных
+    const task = database[Math.floor(Math.random() * database.length)];
     
-    // Инициализируем плавные координаты на точке спавна
-    player.visualX = player.pos.x;
-    player.visualY = player.pos.y;
-    player.rotation = 0;
-    player.visualRotation = 0;
-    player.isUserDropping = false;
+    // Случайная колонка для спавна (чтобы поместилось 2 блока в ширину)
+    const col = Math.floor(Math.random() * (COLS - 1));
+    
+    currentPiece = {
+        x: col,
+        y: 0,
+        // Блок 1: Формула и условия
+        b1: { type: 'formula', text: task.formula, subtext: task.conditions, id: task.answer },
+        // Блок 2: Ответ
+        b2: { type: 'value', text: task.answer, subtext: '', id: task.answer }
+    };
 
-    if (collide(arena, player)) {
-        alert('💥 СИСТЕМА ПЕРЕГРУЖЕНА! Игра окончена. Счет: ' + score);
-        arena.forEach(row => row.fill(0));
-        score = 0;
-        energy = 0;
-        document.getElementById('energy').style.width = '0%';
-        updateScore();
+    // Если место уже занято — игра окончена
+    if (grid[0][col] || grid[0][col+1]) {
+        gameOver = true;
+        alert("Игра окончена! Энергосистема перегружена. Ваш счёт: " + score);
     }
 }
 
-function arenaSweep() {
-    let rowCount = 1;
-    outer: for (let y = arena.length - 1; y > 0; --y) {
-        for (let x = 0; x < arena[y].length; ++x) {
-            if (arena[y][x] === 0) continue outer;
-        }
-        const row = arena.splice(y, 1)[0].fill(0);
-        arena.unshift(row);
-        ++y;
+function drawBlock(x, y, block) {
+    if (!block) return;
 
-        score += rowCount * 10;
-        energy += 25; 
-        if (energy > 100) energy = 100;
-        rowCount *= 2;
+    ctx.fillStyle = block.type === 'formula' ? '#27ae60' : '#2980b9';
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+    
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    
+    if (block.type === 'formula') {
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(block.text, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 20);
+        ctx.font = '9px sans-serif';
+        ctx.fillStyle = '#e8f8f5';
+        ctx.fillText(block.subtext, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 38);
+    } else {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(block.text, x * BLOCK_SIZE + BLOCK_SIZE/2, y * BLOCK_SIZE + 30);
     }
-    
-    document.getElementById('energy').style.width = energy + '%';
-    if (energy >= 100) {
-        setTimeout(triggerElectricDischarge, 150);
-    }
-}
-
-function triggerElectricDischarge() {
-    energy = 0;
-    document.getElementById('energy').style.width = '0%';
-    arena.pop();
-    arena.unshift(new Array(COLS).fill(0));
-    
-    canvas.style.backgroundColor = 'var(--neon-yellow)';
-    setTimeout(() => { canvas.style.backgroundColor = '#0b0b14'; }, 800);
-    score += 50;
-    updateScore();
-}
-
-// Попиксельный рендеринг матрицы стакана
-function drawMatrix(matrix, offset) {
-    matrix.forEach((row, y) => {
-        row.forEach((value, x) => {
-            if (value !== 0) {
-                context.fillStyle = COLORS[value];
-                context.fillRect(x + offset.x, y + offset.y, 1, 1);
-                
-                context.strokeStyle = 'rgba(255,255,255,0.2)';
-                context.lineWidth = 0.05;
-                context.strokeRect(x + offset.x, y + offset.y, 1, 1);
-            }
-        });
-    });
-}
-
-// Кастомный рендеринг активной фигуры с поддержкой субпиксельного сдвига и вращения
-function drawPlayer() {
-    const m = player.matrix;
-    const size = m.length;
-    
-    context.save();
-    // Сдвигаем матрицу рисования к центру вращения падающей фигуры
-    context.translate(player.visualX + size/2, player.visualY + size/2);
-    context.rotate(player.visualRotation);
-    
-    for (let y = 0; y < size; ++y) {
-        for (let x = 0; x < size; ++x) {
-            const value = m[y][x];
-            if (value !== 0) {
-                // Рисуем блоки относительно их смещенного центра
-                context.fillStyle = COLORS[value];
-                context.fillRect(x - size/2, y - size/2, 1, 1);
-                
-                context.strokeStyle = 'rgba(255,255,255,0.5)';
-                context.lineWidth = 0.06;
-                context.strokeRect(x - size/2, y - size/2, 1, 1);
-            }
-        }
-    }
-    context.restore();
 }
 
 function draw() {
-    context.fillStyle = '#0b0b14';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Сетка подложки
-    context.strokeStyle = 'rgba(255, 255, 255, 0.015)';
-    context.lineWidth = 0.03;
-    for(let i = 0; i <= COLS; i++) { context.beginPath(); context.moveTo(i, 0); context.lineTo(i, ROWS); context.stroke(); }
-    for(let i = 0; i <= ROWS; i++) { context.beginPath(); context.moveTo(0, i); context.lineTo(COLS, i); context.stroke(); }
-
-    drawMatrix(arena, {x: 0, y: 0});
-    drawPlayer();
-}
-
-// Главный игровой цикл с расчетом delta-времени (Linear Interpolation)
-let lastTime = 0;
-function update(time = 0) {
-    const dt = (time - lastTime) / 1000; // переводим в секунды
-    lastTime = time;
-
-    // Расчет текущей скорости падения
-    let currentSpeed = player.isUserDropping ? 18.0 : player.dropSpeed;
-    
-    // Плавное логическое движение вниз
-    player.pos.y += currentSpeed * dt;
-
-    // Проверяем коллизию по нижней целой границе
-    if (collide(arena, player, {x: 0, y: 0})) {
-        player.pos.y = Math.floor(player.pos.y);
-        // Откат на одну позицию назад перед фиксацией
-        while(collide(arena, player)) {
-            player.pos.y--;
+    // Сетка фона
+    ctx.strokeStyle = '#222';
+    for(let i=0; i<COLS; i++) {
+        for(let j=0; j<ROWS; j++) {
+            ctx.strokeRect(i*BLOCK_SIZE, j*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
         }
-        lockPlayer();
     }
 
-    // --- ИНТЕРПОЛЯЦИЯ АНИМАЦИИ ---
-    // Плавный сдвиг по горизонтали (X)
-    player.visualX += (player.pos.x - player.visualX) * (1 - Math.exp(-25 * dt));
+    // Отрисовка зафиксированных блоков
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            drawBlock(c, r, grid[r][c]);
+        }
+    }
+
+    // Отрисовка падающего элемента
+    if (currentPiece) {
+        drawBlock(currentPiece.x, currentPiece.y, currentPiece.b1);
+        drawBlock(currentPiece.x + 1, currentPiece.y, currentPiece.b2);
+    }
+}
+
+function moveLeft() {
+    if (currentPiece.x > 0 && !grid[currentPiece.y][currentPiece.x - 1]) {
+        currentPiece.x--;
+    }
+}
+
+function moveRight() {
+    if (currentPiece.x < COLS - 2 && !grid[currentPiece.y][currentPiece.x + 2]) {
+        currentPiece.x++;
+    }
+}
+
+function flipPiece() {
+    // Меняем местами левый и правый блоки в паре
+    const temp = currentPiece.b1;
+    currentPiece.b1 = currentPiece.b2;
+    currentPiece.b2 = temp;
+}
+
+function drop() {
+    // Проверяем, можно ли опуститься ниже (для обоих блоков)
+    if (currentPiece.y < ROWS - 1 && 
+        !grid[currentPiece.y + 1][currentPiece.x] && 
+        !grid[currentPiece.y + 1][currentPiece.x + 1]) {
+        currentPiece.y++;
+    } else {
+        // Фиксируем блоки на сетке
+        grid[currentPiece.y][currentPiece.x] = currentPiece.b1;
+        grid[currentPiece.y][currentPiece.x + 1] = currentPiece.b2;
+        
+        applyGravity();
+        checkMatches();
+        createPiece();
+    }
+    dropCounter = 0;
+}
+
+// Физика падения блоков вниз, если под ними пусто
+function applyGravity() {
+    let moved = false;
+    for (let r = ROWS - 2; r >= 0; r--) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] && !grid[r + 1][c]) {
+                grid[r + 1][c] = grid[r][c];
+                grid[r][c] = null;
+                moved = true;
+            }
+        }
+    }
+    if (moved) applyGravity(); // Рекурсивно опускаем, пока всё не упадет
+}
+
+function checkMatches() {
+    let toDelete = [];
+
+    // Проверка по горизонтали
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS - 1; c++) {
+            let b1 = grid[r][c];
+            let b2 = grid[r][c+1];
+            if (b1 && b2 && b1.type !== b2.type && b1.id === b2.id) {
+                toDelete.push({r, c}, {r, c: c+1});
+            }
+        }
+    }
+
+    // Проверка по вертикали
+    for (let r = 0; r < ROWS - 1; r++) {
+        for (let c = 0; c < COLS; c++) {
+            let b1 = grid[r][c];
+            let b2 = grid[r+1][c];
+            if (b1 && b2 && b1.type !== b2.type && b1.id === b2.id) {
+                toDelete.push({r, c}, {r: r+1, c});
+            }
+        }
+    }
+
+    // Удаление совпадений
+    if (toDelete.length > 0) {
+        toDelete.forEach(cell => {
+            grid[cell.r][cell.c] = null;
+        });
+        score += toDelete.length * 50;
+        scoreElement.innerText = score;
+        
+        // После удаления блоков запускаем гравитацию снова
+        applyGravity();
+        // И проверяем на новые совпадения (каскад)
+        checkMatches();
+    }
+}
+
+// Управление кнопками
+document.addEventListener('keydown', event => {
+    if (gameOver) return;
     
-    // Плавный сдвиг по вертикали (Y)
-    player.visualY += (player.pos.y - player.visualY) * (1 - Math.exp(-35 * dt));
-    
-    // Плавное вращение (Rotation)
-    player.visualRotation += (player.rotation - player.visualRotation) * (1 - Math.exp(-20 * dt));
+    if (event.key === 'ArrowLeft') {
+        moveLeft();
+    } else if (event.key === 'ArrowRight') {
+        moveRight();
+    } else if (event.key === 'ArrowDown') {
+        drop();
+    } else if (event.key === ' ') { // Пробел
+        flipPiece();
+        event.preventDefault();
+    }
+});
+
+function update(time = 0) {
+    if (gameOver) return;
+
+    const deltaTime = time - lastTime;
+    lastTime = time;
+
+    dropCounter += deltaTime;
+    if (dropCounter > dropInterval) {
+        drop();
+    }
 
     draw();
     requestAnimationFrame(update);
 }
 
-function updateScore() {
-    document.getElementById('score').innerText = score;
-}
-
-// --- СЕНСОРНОЕ УПРАВЛЕНИЕ (ЖЕСТЫ) ---
-let touchStartX = 0;
-let touchStartY = 0;
-const sensitivity = 25; // Минимальный порог свайпа
-
-window.addEventListener('touchstart', (e) => {
-    if(e.target === canvas || e.target.closest('.game-container')) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-    }
-}, { passive: true });
-
-window.addEventListener('touchmove', (e) => {
-    if (!touchStartX || !touchStartY) return;
-
-    let currentX = e.touches[0].clientX;
-    let currentY = e.touches[0].clientY;
-    
-    let diffX = currentX - touchStartX;
-    let diffY = currentY - touchStartY;
-
-    // Если потянули вниз, включаем плавное быстрое падение
-    if (diffY > sensitivity && Math.abs(diffY) > Math.abs(diffX)) {
-        player.isUserDropping = true;
-    }
-}, { passive: true });
-
-window.addEventListener('touchend', (e) => {
-    if (!touchStartX || !touchStartY) return;
-
-    let touchEndX = e.changedTouches[0].clientX;
-    let touchEndY = e.changedTouches[0].clientY;
-    
-    let diffX = touchEndX - touchStartX;
-    let diffY = touchEndY - touchStartY;
-
-    player.isUserDropping = false; // Отключаем ускорение при отпускании экрана
-
-    // Тап (Короткое нажатие) -> Поворот
-    if (Math.abs(diffX) < sensitivity && Math.abs(diffY) < sensitivity) {
-        playerRotate(1);
-    } 
-    // Горизонтальные свайпы -> Дискретный шаг влево/вправо
-    else if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX > sensitivity) playerMove(1);
-        else if (diffX < -sensitivity) playerMove(-1);
-    } 
-    // Вертикальный свайп вверх -> Хард-дроп
-    else if (diffY < -sensitivity) {
-        playerHardDrop();
-    }
-
-    touchStartX = 0;
-    touchStartY = 0;
-}, { passive: true });
-
-// Поддержка ПК клавиатуры для тестов
-document.addEventListener('keydown', event => {
-    if (event.keyCode === 37) playerMove(-1);
-    else if (event.keyCode === 39) playerMove(1);
-    else if (event.keyCode === 40) player.isUserDropping = true;
-    else if (event.keyCode === 38) playerRotate(1);
-    else if (event.keyCode === 32) playerHardDrop();
-});
-
-document.addEventListener('keyup', event => {
-    if (event.keyCode === 40) player.isUserDropping = false;
-});
-
-// Запуск космически плавного Тетриса
-playerReset();
-updateScore();
+// Старт игры
+createPiece();
 update();
 </script>
+
 </body>
 </html>
