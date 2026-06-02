@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Энергобаланс: Математика энергетика</title>
+    <title>Энергомост: Математика энергетика | Построй линию до города</title>
     <style>
         * {
             user-select: none;
@@ -28,7 +28,6 @@
             margin: 0 auto;
         }
 
-        /* Основной контейнер - стиль "пульт управления" */
         .game-container {
             background: #1e2a32;
             background-image: radial-gradient(circle at 10% 20%, rgba(70,130,100,0.2) 1.5%, transparent 2%);
@@ -40,7 +39,6 @@
             transition: all 0.2s;
         }
 
-        /* Двухколоночная сетка: левая часть схема, правая - задание и ответы */
         .game-layout {
             display: flex;
             flex-wrap: wrap;
@@ -90,17 +88,17 @@
             font-weight: bold;
         }
 
-        .score-box, .lives-box, .level-box {
+        .score-box, .lives-box, .level-box, .progress-box {
             background: #00000066;
             padding: 6px 18px;
             border-radius: 40px;
             display: flex;
             gap: 12px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             letter-spacing: 1px;
         }
 
-        .score-box span:first-child, .lives-box span:first-child, .level-box span:first-child {
+        .score-box span:first-child, .lives-box span:first-child, .level-box span:first-child, .progress-box span:first-child {
             color: #ffcd7e;
         }
 
@@ -135,7 +133,6 @@
             border-left: 6px solid #ffaa44;
         }
 
-        /* Стили для кнопок ответов (интерактивные) */
         .answers-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -216,22 +213,18 @@
 <div class="game-wrapper">
     <div class="game-container">
         <div class="game-layout">
-            <!-- Левая часть: визуализация энергосистемы -->
             <div class="canvas-area">
                 <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
             </div>
-            <!-- Правая панель: задача + варианты -->
             <div class="task-panel">
                 <div class="equation-card">
                     <span class="badge-power">⚡ РАСЧЁТ ЭНЕРГОСИСТЕМЫ ⚡</span>
                     <div class="equation-text" id="eqDisplay">R₁ = 10 Ω, R₂ = 20 Ω</div>
                     <div class="question-text" id="questionDisplay">Найдите общее сопротивление?</div>
                 </div>
-                <div class="answers-grid" id="answersContainer">
-                    <!-- кнопки генерируются динамически -->
-                </div>
+                <div class="answers-grid" id="answersContainer"></div>
                 <div class="message-area" id="gameMessage">
-                    🎛️ Подберите параметры, чтобы стабилизировать сеть!
+                    🎛️ Правильный ответ = строим энергомост к городу!
                 </div>
             </div>
         </div>
@@ -239,6 +232,7 @@
             <div class="score-box"><span>🔋 МЕГАВАТТЫ</span><span id="scoreValue">0</span></div>
             <div class="lives-box"><span>⚡ СТАБИЛЬНОСТЬ</span><span id="livesValue">3</span></div>
             <div class="level-box"><span>📈 УРОВЕНЬ СЕТИ</span><span id="levelValue">1</span></div>
+            <div class="progress-box"><span>🏗️ ЭНЕРГОМОСТ</span><span id="bridgeProgress">0/15</span></div>
             <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК</button>
         </div>
     </div>
@@ -246,12 +240,12 @@
 
 <script>
     (function(){
-        // ---------- НОВАЯ КОНЦЕПЦИЯ: ЭНЕРГЕТИЧЕСКИЙ ИНЖИНИРИНГ ----------
-        // Игрок выступает в роли диспетчера энергосети. Нужно рассчитать параметры:
-        // 1) Закон Ома для участка цепи (мощность, ток, напряжение)
-        // 2) Сопротивление в смешанных цепях 
-        // 3) Реактивная мощность (базовая версия — формула P = U*I, или расчёт КПД)
-        // Задача сделана динамичной, интересной, с визуализацией "энергопотока".
+        // ---------- НОВАЯ МЕХАНИКА: ПОСТРОЙКА ЭНЕРГОМОСТА ----------
+        // Каждый правильный ответ добавляет сегмент цепи. 15 правильных = ПОБЕДА!
+        const TARGET_CORRECT = 15;  // нужно 15 правильных для победы
+        let correctCount = 0;        // счётчик правильных ответов (длина построенной цепи)
+        let gameActive = true;        // активна ли игра (не победа и не поражение)
+        let victoryFlag = false;      // флаг победы для блокировки
         
         const canvas = document.getElementById('powerCanvas');
         const ctx = canvas.getContext('2d');
@@ -259,9 +253,8 @@
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
         
-        // Игровые состояния
-        let score = 0;          // мегаватты
-        let stability = 3;      // жизни (стабильность сети)
+        let score = 0;
+        let stability = 3;
         let level = 1;
         let currentProblem = null;
         let optionsArray = [];
@@ -272,25 +265,22 @@
         const scoreSpan = document.getElementById('scoreValue');
         const livesSpan = document.getElementById('livesValue');
         const levelSpan = document.getElementById('levelValue');
+        const bridgeProgressSpan = document.getElementById('bridgeProgress');
         const messageDiv = document.getElementById('gameMessage');
         const eqDisplay = document.getElementById('eqDisplay');
         const questionDisplay = document.getElementById('questionDisplay');
         const answersContainer = document.getElementById('answersContainer');
         
-        // ---------- Генераторы задач (новые, увлекательные) ----------
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        // ТИПЫ ЗАДАЧ: 0 - Мощность P=U*I, найти мощность/ток; 1 - Закон Ома (сопротивление); 2 - Последовательное/параллельное для двух резисторов (найти R2)
-        // 3 - КПД или энергия (простая формула)
+        // Генератор задач (остался прежним, но теперь награда за правильный ответ - прогресс моста)
         function generateCoolProblem() {
             const type = randInt(0, 3);
             const lvlBonus = Math.min(level, 12);
-            const rangeU = 20 + lvlBonus * 5;
-            const rangeI = 2 + Math.floor(level / 2);
             
-            if(type === 0) { // мощность электроприбора
+            if(type === 0) {
                 let voltage = randInt(12, 45 + lvlBonus * 4);
                 let current = randInt(1, 12 + Math.floor(level/3));
                 let power = voltage * current;
@@ -300,10 +290,9 @@
                     question: `Какова мощность P (в ваттах)?`,
                     correctAnswer: power,
                     hint: "P = U × I",
-                    visualEffect: "power"
                 };
             }
-            else if(type === 1) { // Закон Ома: найти сопротивление
+            else if(type === 1) {
                 let voltage = randInt(18, 90 + lvlBonus * 6);
                 let current = randInt(2, 16);
                 let resistance = voltage / current;
@@ -318,11 +307,10 @@
                     question: `Найдите сопротивление R (в омах)`,
                     correctAnswer: resistance,
                     hint: "R = U / I",
-                    visualEffect: "ohm"
                 };
             }
-            else if(type === 2) { // Смешанная цепь: два резистора последовательно? или параллельно? Интересный вариант: найти неизвестный резистор
-                let mode = randInt(0,1); // 0 - последовательно, 1 - параллельно
+            else if(type === 2) {
+                let mode = randInt(0,1);
                 if(mode === 0) {
                     let R_known = randInt(15, 70 + lvlBonus*3);
                     let R_unknown = randInt(10, 75 + lvlBonus*2);
@@ -333,12 +321,10 @@
                         question: `Чему равно R₂ (в омах)?`,
                         correctAnswer: R_unknown,
                         hint: "R₂ = R_общ - R₁",
-                        visualEffect: "series"
                     };
                 } else {
                     let R1 = randInt(20, 80 + lvlBonus*3);
                     let R_total = randInt(12, 45 + lvlBonus*2);
-                    // Из параллельной: 1/R_total = 1/R1 + 1/R2 => R2 = 1 / (1/R_total - 1/R1)
                     let R2 = -1;
                     for(let trys=0; trys<25; trys++) {
                         if(R1 > R_total) {
@@ -359,14 +345,13 @@
                     return {
                         title: "🔀 ПАРАЛЛЕЛЬНАЯ ЦЕПЬ",
                         equation: `R₁ = ${R1} Ω,  R_общ = ${R_total} Ω`,
-                        question: `Найдите R₂ (в омах) для параллельного соединения`,
+                        question: `Найдите R₂ (в омах)`,
                         correctAnswer: R2,
                         hint: "1/R₂ = 1/R_общ - 1/R₁",
-                        visualEffect: "parallel"
                     };
                 }
             }
-            else { // тип 3: интересная задача на энергию (киловатт-часы или КПД)
+            else {
                 let efficiency = randInt(75, 98);
                 let inputPower = randInt(100, 400 + level*15);
                 let outputPower = Math.floor(inputPower * efficiency / 100);
@@ -376,7 +361,6 @@
                     question: `Чему равна полезная мощность P_вых (Вт)?`,
                     correctAnswer: outputPower,
                     hint: "P_вых = P_вх × КПД / 100",
-                    visualEffect: "efficiency"
                 };
             }
         }
@@ -404,77 +388,114 @@
             return arr;
         }
         
-        function loadNewChallenge() {
-            if(nextTimer) clearTimeout(nextTimer);
-            waitForAnswer = false;
-            currentProblem = generateCoolProblem();
-            optionsArray = generateOptions(currentProblem.correctAnswer);
-            // отображаем в панели
-            eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.equation}`;
-            questionDisplay.innerHTML = currentProblem.question;
-            // Отрисовка кнопок
-            renderAnswerButtons();
-            messageDiv.innerHTML = `🎛️ ${currentProblem.hint} | Выберите верный параметр для стабилизации!`;
-            drawPowerSystem(); // визуализация на канвасе
+        function updateBridgeDisplay() {
+            bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
         }
         
-        function renderAnswerButtons() {
-            answersContainer.innerHTML = '';
-            optionsArray.forEach((opt, idx) => {
-                const btn = document.createElement('div');
-                btn.className = 'answer-btn';
-                btn.innerText = `${opt} ${(currentProblem.title.includes("МОЩНОСТЬ") ? "Вт" : (currentProblem.title.includes("ОМА") ? "Ω" : (currentProblem.title.includes("ЦЕПЬ") ? "Ω" : "Вт")))}`;
-                if(currentProblem.title.includes("КПД")) btn.innerText = `${opt} Вт`;
-                if(currentProblem.title.includes("ПАРАЛЛЕЛЬНАЯ") || currentProblem.title.includes("ПОСЛЕДОВАТЕЛЬНАЯ")) btn.innerText = `${opt} Ω`;
-                if(currentProblem.title.includes("ЗАКОН ОМА")) btn.innerText = `${opt} Ω`;
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if(!waitForAnswer) handleAnswer(opt);
-                });
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if(!waitForAnswer) handleAnswer(opt);
-                });
-                answersContainer.appendChild(btn);
-            });
+        // ПОБЕДА!
+        function victoryGame() {
+            if(victoryFlag) return;
+            victoryFlag = true;
+            gameActive = false;
+            waitForAnswer = true;
+            if(nextTimer) clearTimeout(nextTimer);
+            messageDiv.innerHTML = `🏆✨ ВЕЛИКОЛЕПНО! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД ПОЛУЧАЕТ СВЕТ! ✨🏆<br>Вам удалось дать энергию городу! Поздравляем! Счёт: ${score} МВт. Нажмите перезапуск для новой игры.`;
+            drawVictoryScene();
+        }
+        
+        // Поражение
+        function gameDefeat() {
+            if(victoryFlag) return;
+            gameActive = false;
+            waitForAnswer = true;
+            if(nextTimer) clearTimeout(nextTimer);
+            messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост не достроен... Поражение. Ваш счёт: ${score} МВт. Перезапустите подстанцию. 💥`;
+            drawGameOverVisual();
         }
         
         function handleAnswer(selectedVal) {
-            if(waitForAnswer) return;
+            if(!gameActive || waitForAnswer || victoryFlag) return;
             const isCorrect = (selectedVal === currentProblem.correctAnswer);
             if(isCorrect) {
                 let points = 15 * level;
                 score += points;
                 scoreSpan.innerText = score;
-                messageDiv.innerHTML = `✅ ОТЛИЧНО! +${points} МВт. ${currentProblem.hint} = ${currentProblem.correctAnswer} ✅`;
+                // Увеличиваем прогресс моста!
+                correctCount++;
+                updateBridgeDisplay();
+                messageDiv.innerHTML = `✅ ОТЛИЧНО! +${points} МВт. ${currentProblem.hint} = ${currentProblem.correctAnswer} ✅ | Энергомост продвинут! (${correctCount}/${TARGET_CORRECT})`;
                 drawCorrectFlashEffect();
+                
+                // Повышение уровня
                 if(score >= level * 70 && level < 20) {
                     level++;
                     levelSpan.innerText = level;
-                    messageDiv.innerHTML += `<br>🎉 ПОВЫШЕНИЕ УРОВНЯ СЕТИ ДО ${level}! Задачи сложнее 🎉`;
+                    messageDiv.innerHTML += `<br>🎉 ПОВЫШЕНИЕ УРОВНЯ СЕТИ ДО ${level}! 🎉`;
+                }
+                
+                // Проверка победы после увеличения счётчика
+                if(correctCount >= TARGET_CORRECT) {
+                    victoryGame();
+                    drawPowerSystem(); // финальная отрисовка с мостом
+                    return;
                 }
             } else {
                 stability--;
                 livesSpan.innerText = stability;
-                messageDiv.innerHTML = `❌ СБОЙ! Правильный ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌`;
+                messageDiv.innerHTML = `❌ СБОЙ! Правильный ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌ Прогресс моста не изменился.`;
                 drawWrongFlashEffect();
                 if(stability <= 0) {
                     gameDefeat();
+                    drawPowerSystem();
                     return;
                 }
             }
             waitForAnswer = true;
             nextTimer = setTimeout(() => {
-                if(stability > 0) loadNewChallenge();
+                if(gameActive && !victoryFlag && stability > 0) {
+                    loadNewChallenge();
+                }
                 nextTimer = null;
             }, 1300);
             drawPowerSystem();
         }
         
-        function gameDefeat() {
-            waitForAnswer = true;
-            messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Игра окончена. Ваш счёт: ${score} МВт. Перезапустите подстанцию. 💥`;
-            drawGameOverVisual();
+        function loadNewChallenge() {
+            if(!gameActive || victoryFlag) return;
+            if(nextTimer) clearTimeout(nextTimer);
+            waitForAnswer = false;
+            currentProblem = generateCoolProblem();
+            optionsArray = generateOptions(currentProblem.correctAnswer);
+            eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.equation}`;
+            questionDisplay.innerHTML = currentProblem.question;
+            renderAnswerButtons();
+            let buildStatus = `🏗️ Прогресс моста: ${correctCount}/${TARGET_CORRECT} | `;
+            messageDiv.innerHTML = buildStatus + currentProblem.hint + " | Выберите верный параметр!";
+            drawPowerSystem();
+        }
+        
+        function renderAnswerButtons() {
+            answersContainer.innerHTML = '';
+            optionsArray.forEach((opt) => {
+                const btn = document.createElement('div');
+                btn.className = 'answer-btn';
+                let suffix = "";
+                if(currentProblem.title.includes("МОЩНОСТЬ")) suffix = " Вт";
+                else if(currentProblem.title.includes("ОМА")) suffix = " Ω";
+                else if(currentProblem.title.includes("ЦЕПЬ")) suffix = " Ω";
+                else if(currentProblem.title.includes("КПД")) suffix = " Вт";
+                else suffix = "";
+                btn.innerText = `${opt}${suffix}`;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if(!waitForAnswer && gameActive && !victoryFlag) handleAnswer(opt);
+                });
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if(!waitForAnswer && gameActive && !victoryFlag) handleAnswer(opt);
+                });
+                answersContainer.appendChild(btn);
+            });
         }
         
         function restart() {
@@ -482,21 +503,27 @@
             score = 0;
             stability = 3;
             level = 1;
+            correctCount = 0;
+            gameActive = true;
+            victoryFlag = false;
+            waitForAnswer = false;
             scoreSpan.innerText = "0";
             livesSpan.innerText = "3";
             levelSpan.innerText = "1";
-            waitForAnswer = false;
+            updateBridgeDisplay();
             loadNewChallenge();
+            drawPowerSystem();
         }
         
-        // ============= ВИЗУАЛИЗАЦИЯ ЭНЕРГОСИСТЕМЫ (динамичная, интересная) ============
+        // ============= ВИЗУАЛИЗАЦИЯ С ПОСТРОЕНИЕМ ЭНЕРГОМОСТА ============
+        // Линия рисуется от генератора (x=120, y=200) к городу (x=690, y=180)
+        // Прогресс correctCount / TARGET_CORRECT определяет длину "живой" линии.
         function drawPowerSystem() {
             ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-            // фон - электрощит
             ctx.fillStyle = "#121f1c";
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            // турбина/генератор
-            ctx.shadowBlur = 0;
+            
+            // Генератор
             ctx.fillStyle = "#3a6b55";
             ctx.beginPath();
             ctx.ellipse(100, 200, 50, 70, 0, 0, Math.PI*2);
@@ -508,21 +535,7 @@
             ctx.font = "12px monospace";
             ctx.fillText("ГЕНЕРАТОР", 68, 260);
             
-            // линии электропередач
-            ctx.beginPath();
-            ctx.moveTo(150, 200);
-            ctx.lineTo(280, 180);
-            ctx.lineTo(400, 210);
-            ctx.lineTo(550, 170);
-            ctx.lineTo(680, 200);
-            ctx.strokeStyle = "#f5b042";
-            ctx.lineWidth = 4;
-            ctx.stroke();
-            ctx.setLineDash([8, 12]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // "Лампочка-город" справа
+            // Город (справа)
             ctx.fillStyle = "#f5cb5c";
             ctx.beginPath();
             ctx.arc(690, 180, 30, 0, Math.PI*2);
@@ -530,9 +543,96 @@
             ctx.fillStyle = "#664d1a";
             ctx.font = "22px monospace";
             ctx.fillText("🏙️", 678, 192);
+            ctx.fillStyle = "#ffe2a4";
+            ctx.font = "10px monospace";
+            ctx.fillText("ГОРОД", 672, 222);
             
-            // Индикатор нагрузки + уравнение
-            if(currentProblem) {
+            // Рисуем базовую линию-трассу (серый фон)
+            ctx.beginPath();
+            ctx.moveTo(150, 200);
+            ctx.lineTo(280, 180);
+            ctx.lineTo(400, 210);
+            ctx.lineTo(550, 170);
+            ctx.lineTo(660, 190);
+            ctx.strokeStyle = "#4a5b55";
+            ctx.lineWidth = 8;
+            ctx.stroke();
+            
+            // ЭНЕРГОМОСТ — динамическая линия, прогресс (длина в процентах)
+            // Сегментированный путь: набор промежуточных точек
+            const waypoints = [
+                {x:150, y:200},
+                {x:280, y:180},
+                {x:400, y:210},
+                {x:550, y:170},
+                {x:660, y:190},
+                {x:690, y:180}  // финальная точка
+            ];
+            const totalLength = computeTotalLength(waypoints);
+            let targetProgress = Math.min(1, correctCount / TARGET_CORRECT);
+            let currentDist = totalLength * targetProgress;
+            
+            // рисуем "построенную" часть линии ярким электрическим цветом
+            ctx.beginPath();
+            let accumulated = 0;
+            let started = false;
+            let lastPoint = null;
+            for(let i=0; i<waypoints.length-1; i++) {
+                let p1 = waypoints[i];
+                let p2 = waypoints[i+1];
+                let segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if(accumulated + segLen <= currentDist) {
+                    // весь сегмент построен
+                    if(!started) {
+                        ctx.moveTo(p1.x, p1.y);
+                        started = true;
+                    }
+                    ctx.lineTo(p2.x, p2.y);
+                    accumulated += segLen;
+                } 
+                else if(accumulated < currentDist && accumulated + segLen > currentDist) {
+                    // частичная отрисовка сегмента
+                    let remain = currentDist - accumulated;
+                    let t = remain / segLen;
+                    let interX = p1.x + (p2.x - p1.x) * t;
+                    let interY = p1.y + (p2.y - p1.y) * t;
+                    if(!started) {
+                        ctx.moveTo(p1.x, p1.y);
+                        started = true;
+                    }
+                    ctx.lineTo(interX, interY);
+                    accumulated = currentDist;
+                    break;
+                }
+                else {
+                    break;
+                }
+                lastPoint = p2;
+            }
+            ctx.strokeStyle = "#f5d742";
+            ctx.lineWidth = 6;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = "#ffaa33";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Добавляем искорки на построенной линии
+            if(targetProgress > 0) {
+                ctx.fillStyle = "#ffdd88";
+                for(let i=0; i<Math.floor(targetProgress * 12); i++) {
+                    let tPos = (i / 12) * currentDist;
+                    let point = getPointAtDistance(waypoints, tPos);
+                    if(point) {
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, 3, 0, Math.PI*2);
+                        ctx.fillStyle = "#ffcc44";
+                        ctx.fill();
+                    }
+                }
+            }
+            
+            // Индикатор текущей задачи
+            if(currentProblem && gameActive) {
                 ctx.fillStyle = "#010f0ccc";
                 ctx.fillRect(20, 320, 380, 85);
                 ctx.fillStyle = "#bbffaa";
@@ -545,18 +645,58 @@
                 ctx.fillText(currentProblem.question.slice(0, 32), 30, 395);
             }
             
-            // Уровень стабильности (индикатор)
+            // Стабильность
             for(let i=0; i<stability; i++) {
                 ctx.fillStyle = "#61dafb";
                 ctx.fillRect(30 + i*35, 290, 25, 15);
             }
-            if(stability <= 0) {
+            
+            // Если игра проиграна
+            if(stability <= 0 && !victoryFlag) {
                 ctx.fillStyle = "#ff6666aa";
                 ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
                 ctx.fillStyle = "white";
                 ctx.font = "bold 26px monospace";
                 ctx.fillText("СИСТЕМА ОТКЛЮЧЕНА", CANVAS_W/2-150, CANVAS_H/2);
             }
+            // Если победа
+            if(victoryFlag) {
+                ctx.fillStyle = "#ffdd88cc";
+                ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+                ctx.fillStyle = "#2c5a2e";
+                ctx.font = "bold 28px monospace";
+                ctx.fillText("ЭНЕРГОМОСТ ПОСТРОЕН!", CANVAS_W/2-170, CANVAS_H/2-20);
+                ctx.font = "20px monospace";
+                ctx.fillStyle = "#ffefb9";
+                ctx.fillText("ГОРОД СИЯЕТ! ПОБЕДА!", CANVAS_W/2-150, CANVAS_H/2+30);
+            }
+        }
+        
+        // вспомогательные функции для расчета длины пути
+        function computeTotalLength(points) {
+            let len = 0;
+            for(let i=0; i<points.length-1; i++) {
+                len += Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
+            }
+            return len;
+        }
+        
+        function getPointAtDistance(points, distance) {
+            if(distance <= 0) return points[0];
+            let accumulated = 0;
+            for(let i=0; i<points.length-1; i++) {
+                let p1 = points[i];
+                let p2 = points[i+1];
+                let segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if(accumulated + segLen >= distance) {
+                    let t = (distance - accumulated) / segLen;
+                    let x = p1.x + (p2.x - p1.x) * t;
+                    let y = p1.y + (p2.y - p1.y) * t;
+                    return {x, y};
+                }
+                accumulated += segLen;
+            }
+            return points[points.length-1];
         }
         
         function drawCorrectFlashEffect() {
@@ -573,15 +713,15 @@
         
         function drawGameOverVisual() {
             drawPowerSystem();
-            ctx.fillStyle = "#d44";
-            ctx.font = "bold 24px monospace";
-            ctx.fillText("GAME OVER", CANVAS_W/2-80, CANVAS_H/2);
+        }
+        
+        function drawVictoryScene() {
+            drawPowerSystem();
         }
         
         document.getElementById('restartGame').addEventListener('click', () => restart());
         document.getElementById('restartGame').addEventListener('touchstart', (e) => { e.preventDefault(); restart(); });
         
-        // Инициализация
         function init() {
             restart();
         }
