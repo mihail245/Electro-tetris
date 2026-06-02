@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Энергобаланс: Математика энергетика</title>
+    <title>⚡ ГРОЗОВАЯ СЕТЬ: МАТЕМАТИКА ЭЛЕКТРИКА ⚡</title>
     <style>
         * {
             user-select: none;
@@ -12,67 +12,104 @@
         }
 
         body {
-            background: linear-gradient(145deg, #0a1a2e 0%, #030c17 100%);
+            background: radial-gradient(circle at 20% 30%, #0a0f1a, #010101);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Segoe UI', 'Courier New', 'Monaco', monospace;
+            font-family: 'Segoe UI', 'Courier New', 'Monaco', 'Impact', monospace;
             margin: 0;
             padding: 20px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        /* Электрический фон - молнии */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(45deg, rgba(255,215,0,0.08) 0px, rgba(255,215,0,0.08) 2px, transparent 2px, transparent 8px),
+                              repeating-linear-gradient(135deg, rgba(255,100,0,0.05) 0px, rgba(255,100,0,0.05) 1px, transparent 1px, transparent 12px);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .game-wrapper {
-            max-width: 1300px;
+            max-width: 1400px;
             width: 100%;
-            margin: 0 auto;
+            position: relative;
+            z-index: 2;
         }
 
-        /* Основной контейнер - стиль "пульт управления" */
+        /* Главный пульт с искрами */
         .game-container {
-            background: #1e2a32;
-            background-image: radial-gradient(circle at 10% 20%, rgba(70,130,100,0.2) 1.5%, transparent 2%);
-            background-size: 35px 35px;
+            background: #0b1219e0;
+            backdrop-filter: blur(3px);
             border-radius: 48px;
-            box-shadow: 0 20px 35px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+            box-shadow: 0 0 0 3px #ffaa33, 0 0 0 8px #2c2c1c, 0 20px 40px black;
             padding: 20px 24px 30px 24px;
-            border-bottom: 6px solid #3a7a5a;
+            border-bottom: 6px solid #ffaa33;
             transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Двухколоночная сетка: левая часть схема, правая - задание и ответы */
+        /* Анимация молний на рамке */
+        .game-container::after {
+            content: "⚡⚡⚡";
+            position: absolute;
+            bottom: -12px;
+            right: 20px;
+            font-size: 28px;
+            opacity: 0.6;
+            color: #ffcc44;
+            text-shadow: 0 0 8px yellow;
+            animation: sparkFlicker 1.2s infinite;
+        }
+
+        @keyframes sparkFlicker {
+            0% { opacity: 0.3; text-shadow: 0 0 2px gold;}
+            100% { opacity: 1; text-shadow: 0 0 12px #ffaa33;}
+        }
+
         .game-layout {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 24px;
             margin-bottom: 20px;
         }
 
         .canvas-area {
             flex: 2;
             min-width: 280px;
+            filter: drop-shadow(0 0 8px #ffaa33);
         }
 
         .task-panel {
             flex: 1.2;
-            min-width: 260px;
-            background: #0f1f1ad9;
-            backdrop-filter: blur(10px);
+            min-width: 270px;
+            background: #030b0fe6;
+            backdrop-filter: blur(12px);
             border-radius: 36px;
             padding: 20px 18px;
-            box-shadow: inset 0 0 8px #2e6b4e, 0 8px 18px black;
-            border: 1px solid #5a9e6e;
+            box-shadow: inset 0 0 15px #ffb347, 0 8px 25px black;
+            border: 2px solid #ffaa33;
+            position: relative;
         }
 
         canvas {
             display: block;
             margin: 0 auto;
             border-radius: 28px;
-            box-shadow: 0 12px 28px black;
-            background-color: #101f18;
+            box-shadow: 0 0 0 3px #ffaa33, 0 12px 28px black;
+            background-color: #030d0a;
             width: 100%;
             height: auto;
-            background: #14261d;
+            background: radial-gradient(circle at 30% 20%, #1a2a1f, #021008);
         }
 
         .info-panel {
@@ -82,26 +119,24 @@
             margin-top: 20px;
             gap: 12px;
             flex-wrap: wrap;
-            background: #0b1815cc;
-            backdrop-filter: blur(4px);
+            background: #000000aa;
+            backdrop-filter: blur(8px);
             padding: 10px 20px;
             border-radius: 60px;
-            color: #e2f5e8;
+            color: #ffeaac;
             font-weight: bold;
+            border: 1px solid #ffaa33;
         }
 
         .score-box, .lives-box, .level-box {
-            background: #00000066;
+            background: #1a1000aa;
             padding: 6px 18px;
             border-radius: 40px;
             display: flex;
             gap: 12px;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             letter-spacing: 1px;
-        }
-
-        .score-box span:first-child, .lives-box span:first-child, .level-box span:first-child {
-            color: #ffcd7e;
+            border-left: 4px solid #ffaa33;
         }
 
         .restart-btn {
@@ -110,71 +145,75 @@
             font-family: inherit;
             font-weight: bold;
             font-size: 1rem;
-            padding: 6px 18px;
+            padding: 6px 20px;
             border-radius: 40px;
-            color: #1e2a1c;
+            color: #0a0f05;
             cursor: pointer;
             transition: 0.1s linear;
-            box-shadow: 0 3px 0 #a33f00;
+            box-shadow: 0 0 8px #ffaa66;
         }
 
         .restart-btn:active {
-            transform: translateY(2px);
+            transform: scale(0.96);
         }
 
         .message-area {
-            background: #071510;
+            background: #020a04dd;
             padding: 12px 16px;
             border-radius: 32px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             text-align: center;
-            margin-top: 14px;
-            color: #c6ffc1;
+            margin-top: 18px;
+            color: #ffffb0;
             font-family: 'Courier New', monospace;
             font-weight: bold;
-            border-left: 6px solid #ffaa44;
+            border-top: 3px solid #ffaa33;
+            border-bottom: 2px solid #ffaa33;
+            text-shadow: 0 0 3px orange;
         }
 
-        /* Стили для кнопок ответов (интерактивные) */
+        /* Кнопки ответов - стиль "высоковольтные переключатели" */
         .answers-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
+            gap: 16px;
             margin-top: 25px;
         }
 
         .answer-btn {
-            background: #253b30;
-            border: 2px solid #5f9e72;
+            background: linear-gradient(145deg, #1f2b1c, #071208);
+            border: 2px solid #ffbb44;
             border-radius: 60px;
-            padding: 14px 8px;
+            padding: 14px 6px;
             font-size: 1.4rem;
             font-weight: bold;
             font-family: 'Courier New', monospace;
-            color: #f7f3c6;
+            color: #ffeb99;
             text-align: center;
             cursor: pointer;
-            transition: 0.08s linear;
-            box-shadow: 0 3px 0 #1f4d2e;
-            backdrop-filter: blur(4px);
+            transition: 0.07s linear;
+            box-shadow: 0 4px 0 #7a4d1a;
+            backdrop-filter: blur(2px);
+            letter-spacing: 2px;
         }
 
         .answer-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 1px 0 #1f4d2e;
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #7a4d1a;
         }
 
         .equation-card {
-            background: #0b2019;
-            padding: 15px;
+            background: #0f170cd9;
+            padding: 16px;
             border-radius: 28px;
             text-align: center;
             margin-bottom: 20px;
-            border: 1px solid #46b87a;
+            border: 1px solid #ffcc55;
+            box-shadow: inset 0 0 8px #e6b422;
         }
 
         .equation-text {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             font-weight: bold;
             font-family: monospace;
             color: #ffdfa5;
@@ -182,20 +221,22 @@
         }
 
         .question-text {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             margin-top: 12px;
-            background: #00000055;
+            background: #00000077;
             padding: 8px;
             border-radius: 28px;
         }
 
         .badge-power {
             display: inline-block;
-            background: #ffb347;
-            padding: 4px 12px;
+            background: #ffaa33;
+            padding: 4px 14px;
             border-radius: 40px;
             font-size: 0.8rem;
             color: #1d2a0e;
+            font-weight: bold;
+            margin-bottom: 8px;
         }
 
         @media (max-width: 780px) {
@@ -203,12 +244,20 @@
                 flex-direction: column;
             }
             .answer-btn {
-                padding: 10px 5px;
+                padding: 10px 4px;
                 font-size: 1.2rem;
             }
             .equation-text {
                 font-size: 1rem;
             }
+        }
+
+        /* Электрические молнии в углах */
+        .lightning-corner {
+            position: absolute;
+            font-size: 55px;
+            opacity: 0.3;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -216,59 +265,53 @@
 <div class="game-wrapper">
     <div class="game-container">
         <div class="game-layout">
-            <!-- Левая часть: визуализация энергосистемы -->
+            <!-- Левая часть: высоковольтная схема с молниями -->
             <div class="canvas-area">
-                <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
+                <canvas id="powerCanvas" width="800" height="450" style="width:100%; height:auto; aspect-ratio:800/450"></canvas>
             </div>
-            <!-- Правая панель: задача + варианты -->
+            <!-- Правая панель: вычислитель -->
             <div class="task-panel">
                 <div class="equation-card">
-                    <span class="badge-power">⚡ РАСЧЁТ ЭНЕРГОСИСТЕМЫ ⚡</span>
-                    <div class="equation-text" id="eqDisplay">R₁ = 10 Ω, R₂ = 20 Ω</div>
-                    <div class="question-text" id="questionDisplay">Найдите общее сопротивление?</div>
+                    <span class="badge-power">⚡⚡ ВЫСОКОЕ НАПРЯЖЕНИЕ ⚡⚡</span>
+                    <div class="equation-text" id="eqDisplay">Заряд...</div>
+                    <div class="question-text" id="questionDisplay">Расчет цепи</div>
                 </div>
                 <div class="answers-grid" id="answersContainer">
-                    <!-- кнопки генерируются динамически -->
+                    <!-- кнопки ответов динамически -->
                 </div>
                 <div class="message-area" id="gameMessage">
-                    🎛️ Подберите параметры, чтобы стабилизировать сеть!
+                    🌀 МОЛНИИ КОНТРОЛЯ: Реши уравнение, чтобы стабилизировать разряд!
                 </div>
             </div>
         </div>
         <div class="info-panel">
-            <div class="score-box"><span>🔋 МЕГАВАТТЫ</span><span id="scoreValue">0</span></div>
-            <div class="lives-box"><span>⚡ СТАБИЛЬНОСТЬ</span><span id="livesValue">3</span></div>
-            <div class="level-box"><span>📈 УРОВЕНЬ СЕТИ</span><span id="levelValue">1</span></div>
-            <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК</button>
+            <div class="score-box"><span>⚡ МЕГАВАТТЫ ⚡</span><span id="scoreValue">0</span></div>
+            <div class="lives-box"><span>🌀 СТАБИЛЬНОСТЬ</span><span id="livesValue">3</span></div>
+            <div class="level-box"><span>🌩️ УРОВЕНЬ РАЗРЯДА</span><span id="levelValue">1</span></div>
+            <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК СЕТИ</button>
         </div>
     </div>
 </div>
 
 <script>
     (function(){
-        // ---------- НОВАЯ КОНЦЕПЦИЯ: ЭНЕРГЕТИЧЕСКИЙ ИНЖИНИРИНГ ----------
-        // Игрок выступает в роли диспетчера энергосети. Нужно рассчитать параметры:
-        // 1) Закон Ома для участка цепи (мощность, ток, напряжение)
-        // 2) Сопротивление в смешанных цепях 
-        // 3) Реактивная мощность (базовая версия — формула P = U*I, или расчёт КПД)
-        // Задача сделана динамичной, интересной, с визуализацией "энергопотока".
-        
+        // ========== ЭЛЕКТРИЧЕСКАЯ ТЕМА: МАТЕМАТИКА ДЛЯ ЭНЕРГЕТИКА ==========
+        // Дизайн с молниями, искрами, динамическая отрисовка высоковольтной линии
         const canvas = document.getElementById('powerCanvas');
         const ctx = canvas.getContext('2d');
-        let CANVAS_W = 750, CANVAS_H = 420;
+        let CANVAS_W = 800, CANVAS_H = 450;
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
         
-        // Игровые состояния
-        let score = 0;          // мегаватты
-        let stability = 3;      // жизни (стабильность сети)
+        let score = 0;          // мегаватты энергии
+        let stability = 3;      // жизни (целостность сети)
         let level = 1;
         let currentProblem = null;
         let optionsArray = [];
         let waitForAnswer = false;
         let nextTimer = null;
         
-        // DOM элементы
+        // DOM ссылки
         const scoreSpan = document.getElementById('scoreValue');
         const livesSpan = document.getElementById('livesValue');
         const levelSpan = document.getElementById('levelValue');
@@ -277,123 +320,106 @@
         const questionDisplay = document.getElementById('questionDisplay');
         const answersContainer = document.getElementById('answersContainer');
         
-        // ---------- Генераторы задач (новые, увлекательные) ----------
+        // вспомогательные
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        // ТИПЫ ЗАДАЧ: 0 - Мощность P=U*I, найти мощность/ток; 1 - Закон Ома (сопротивление); 2 - Последовательное/параллельное для двух резисторов (найти R2)
-        // 3 - КПД или энергия (простая формула)
-        function generateCoolProblem() {
+        // Генератор задач с электрическим уклоном: закон Ома, мощность, последовательное/параллельное, удельное сопротивление
+        function generateElectricProblem() {
             const type = randInt(0, 3);
-            const lvlBonus = Math.min(level, 12);
-            const rangeU = 20 + lvlBonus * 5;
-            const rangeI = 2 + Math.floor(level / 2);
+            const lvlBoost = Math.min(level, 14);
+            const voltageRange = 24 + lvlBoost * 6;
+            const currentRange = 2 + Math.floor(level / 2);
             
-            if(type === 0) { // мощность электроприбора
-                let voltage = randInt(12, 45 + lvlBonus * 4);
-                let current = randInt(1, 12 + Math.floor(level/3));
-                let power = voltage * current;
+            if(type === 0) { // Мощность, яркий пример для электрика
+                let U = randInt(24, 60 + lvlBoost * 5);
+                let I = randInt(2, 18 + Math.floor(level/2));
+                let P = U * I;
                 return {
-                    title: "📡 АКТИВНАЯ МОЩНОСТЬ",
-                    equation: `U = ${voltage} В,  I = ${current} А`,
-                    question: `Какова мощность P (в ваттах)?`,
-                    correctAnswer: power,
+                    title: "💥 ЭЛЕКТРИЧЕСКАЯ МОЩНОСТЬ",
+                    equation: `Напряжение U = ${U} В,  Ток I = ${I} А`,
+                    question: `Найдите мощность P (Вт) в цепи с молнией`,
+                    correctAnswer: P,
                     hint: "P = U × I",
-                    visualEffect: "power"
+                    unit: "Вт"
                 };
             }
-            else if(type === 1) { // Закон Ома: найти сопротивление
-                let voltage = randInt(18, 90 + lvlBonus * 6);
-                let current = randInt(2, 16);
-                let resistance = voltage / current;
-                if(voltage % current !== 0) {
-                    voltage = voltage - (voltage % current);
-                    if(voltage < current) voltage = current * randInt(2, 15);
-                    resistance = voltage / current;
+            else if(type === 1) { // Закон Ома (классика)
+                let U = randInt(30, 110 + lvlBoost*6);
+                let I = randInt(2, 20);
+                let R = U / I;
+                if(U % I !== 0) {
+                    U = U - (U % I);
+                    if(U < I) U = I * randInt(3, 15);
+                    R = U / I;
                 }
                 return {
-                    title: "⚡ ЗАКОН ОМА",
-                    equation: `U = ${voltage} В,  I = ${current} А`,
-                    question: `Найдите сопротивление R (в омах)`,
-                    correctAnswer: resistance,
+                    title: "⚡ ЗАКОН ОМА (ДЛЯ ГРОЗОЗАЩИТЫ)",
+                    equation: `U = ${U} В,  I = ${I} А`,
+                    question: `Вычислите сопротивление R (Ом) участка`,
+                    correctAnswer: R,
                     hint: "R = U / I",
-                    visualEffect: "ohm"
+                    unit: "Ω"
                 };
             }
-            else if(type === 2) { // Смешанная цепь: два резистора последовательно? или параллельно? Интересный вариант: найти неизвестный резистор
-                let mode = randInt(0,1); // 0 - последовательно, 1 - параллельно
-                if(mode === 0) {
-                    let R_known = randInt(15, 70 + lvlBonus*3);
-                    let R_unknown = randInt(10, 75 + lvlBonus*2);
-                    let R_total = R_known + R_unknown;
-                    return {
-                        title: "🔌 ПОСЛЕДОВАТЕЛЬНАЯ ЦЕПЬ",
-                        equation: `R₁ = ${R_known} Ω,  R_общ = ${R_total} Ω`,
-                        question: `Чему равно R₂ (в омах)?`,
-                        correctAnswer: R_unknown,
-                        hint: "R₂ = R_общ - R₁",
-                        visualEffect: "series"
-                    };
-                } else {
-                    let R1 = randInt(20, 80 + lvlBonus*3);
-                    let R_total = randInt(12, 45 + lvlBonus*2);
-                    // Из параллельной: 1/R_total = 1/R1 + 1/R2 => R2 = 1 / (1/R_total - 1/R1)
-                    let R2 = -1;
-                    for(let trys=0; trys<25; trys++) {
-                        if(R1 > R_total) {
-                            let denom = (R1 - R_total);
-                            let num = R1 * R_total;
-                            if(num % denom === 0) {
-                                R2 = num / denom;
-                                if(R2 > 4 && R2 < 300) break;
-                            }
-                        }
-                        R_total = randInt(12, 50 + lvlBonus*3);
-                        R1 = randInt(25, 85);
-                    }
-                    if(R2 === -1 || R2 <=0) {
-                        R2 = randInt(15, 90);
-                        R_total = Math.floor((R1 * R2) / (R1 + R2));
-                    }
-                    return {
-                        title: "🔀 ПАРАЛЛЕЛЬНАЯ ЦЕПЬ",
-                        equation: `R₁ = ${R1} Ω,  R_общ = ${R_total} Ω`,
-                        question: `Найдите R₂ (в омах) для параллельного соединения`,
-                        correctAnswer: R2,
-                        hint: "1/R₂ = 1/R_общ - 1/R₁",
-                        visualEffect: "parallel"
-                    };
-                }
-            }
-            else { // тип 3: интересная задача на энергию (киловатт-часы или КПД)
-                let efficiency = randInt(75, 98);
-                let inputPower = randInt(100, 400 + level*15);
-                let outputPower = Math.floor(inputPower * efficiency / 100);
+            else if(type === 2) { // Последовательное соединение (электрическая цепь)
+                let R1 = randInt(12, 65 + lvlBoost*4);
+                let R2 = randInt(18, 85 + lvlBoost*3);
+                let Rtotal = R1 + R2;
                 return {
-                    title: "♻️ КОЭФФИЦИЕНТ ПОЛЕЗНОГО ДЕЙСТВИЯ",
-                    equation: `КПД = ${efficiency}%,  P_вх = ${inputPower} Вт`,
-                    question: `Чему равна полезная мощность P_вых (Вт)?`,
-                    correctAnswer: outputPower,
-                    hint: "P_вых = P_вх × КПД / 100",
-                    visualEffect: "efficiency"
+                    title: "🔌 ПОСЛЕДОВАТЕЛЬНЫЙ УЧАСТОК",
+                    equation: `R₁ = ${R1} Ω,  R₂ = ? ,  Rобщ = ${Rtotal} Ω`,
+                    question: `Чему равно сопротивление R₂ (Ом)?`,
+                    correctAnswer: R2,
+                    hint: "R₂ = Rобщ - R₁",
+                    unit: "Ω"
+                };
+            }
+            else { // параллельное соединение с искрами
+                let R1 = randInt(20, 80 + lvlBoost*3);
+                let targetRtotal = randInt(12, 55 + lvlBoost*2);
+                let R2 = -1;
+                for(let t=0; t<30; t++) {
+                    if(R1 > targetRtotal) {
+                        let numerator = R1 * targetRtotal;
+                        let denominator = R1 - targetRtotal;
+                        if(numerator % denominator === 0) {
+                            R2 = numerator / denominator;
+                            if(R2 > 5 && R2 < 280) break;
+                        }
+                    }
+                    targetRtotal = randInt(14, 55 + lvlBoost*2);
+                    R1 = randInt(22, 85);
+                }
+                if(R2 === -1 || R2 <= 0) {
+                    R2 = randInt(25, 100);
+                    targetRtotal = Math.floor((R1 * R2) / (R1 + R2));
+                }
+                return {
+                    title: "🌀 ПАРАЛЛЕЛЬНАЯ МОЛНИЯ",
+                    equation: `R₁ = ${R1} Ω,  Rобщ = ${targetRtotal} Ω`,
+                    question: `Найдите R₂ для параллельного соединения (Ом)`,
+                    correctAnswer: R2,
+                    hint: "1/R₂ = 1/Rобщ - 1/R₁",
+                    unit: "Ω"
                 };
             }
         }
         
-        function generateOptions(correct) {
+        function generateOptions(correctVal, unitType) {
             let opts = new Set();
-            opts.add(correct);
-            let rangeVar = Math.max(3, Math.floor(correct * 0.35));
+            opts.add(correctVal);
+            let delta = Math.max(3, Math.floor(correctVal * 0.3));
             while(opts.size < 4) {
-                let variation = randInt(-rangeVar, rangeVar);
-                let candidate = correct + variation;
-                if(candidate < 1) candidate = correct + randInt(2, 12);
-                if(candidate > 900) candidate = correct - randInt(3, 25);
+                let variation = randInt(-delta, delta);
+                let candidate = correctVal + variation;
+                if(candidate < 1) candidate = correctVal + randInt(2, 12);
+                if(candidate > 1200) candidate = correctVal - randInt(4, 30);
                 if(candidate > 0) opts.add(candidate);
                 if(opts.size < 3) {
-                    let extra = correct + randInt(-Math.floor(correct*0.5), Math.floor(correct*0.7));
-                    if(extra > 0 && extra !== correct) opts.add(extra);
+                    let extra = correctVal + randInt(-Math.floor(correctVal*0.5), Math.floor(correctVal*0.6));
+                    if(extra > 0 && extra !== correctVal) opts.add(extra);
                 }
             }
             let arr = Array.from(opts);
@@ -407,57 +433,54 @@
         function loadNewChallenge() {
             if(nextTimer) clearTimeout(nextTimer);
             waitForAnswer = false;
-            currentProblem = generateCoolProblem();
-            optionsArray = generateOptions(currentProblem.correctAnswer);
-            // отображаем в панели
-            eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.equation}`;
+            currentProblem = generateElectricProblem();
+            optionsArray = generateOptions(currentProblem.correctAnswer, currentProblem.unit);
+            
+            eqDisplay.innerHTML = `⚡ ${currentProblem.title} ⚡<br>${currentProblem.equation}`;
             questionDisplay.innerHTML = currentProblem.question;
-            // Отрисовка кнопок
             renderAnswerButtons();
-            messageDiv.innerHTML = `🎛️ ${currentProblem.hint} | Выберите верный параметр для стабилизации!`;
-            drawPowerSystem(); // визуализация на канвасе
+            messageDiv.innerHTML = `🌩️ ПОДСКАЗКА: ${currentProblem.hint} | Стабилизируйте разряд! 🌩️`;
+            drawPowerGridWithLightnings(); // отрисовка с молниями
         }
         
         function renderAnswerButtons() {
             answersContainer.innerHTML = '';
-            optionsArray.forEach((opt, idx) => {
+            optionsArray.forEach((val) => {
                 const btn = document.createElement('div');
                 btn.className = 'answer-btn';
-                btn.innerText = `${opt} ${(currentProblem.title.includes("МОЩНОСТЬ") ? "Вт" : (currentProblem.title.includes("ОМА") ? "Ω" : (currentProblem.title.includes("ЦЕПЬ") ? "Ω" : "Вт")))}`;
-                if(currentProblem.title.includes("КПД")) btn.innerText = `${opt} Вт`;
-                if(currentProblem.title.includes("ПАРАЛЛЕЛЬНАЯ") || currentProblem.title.includes("ПОСЛЕДОВАТЕЛЬНАЯ")) btn.innerText = `${opt} Ω`;
-                if(currentProblem.title.includes("ЗАКОН ОМА")) btn.innerText = `${opt} Ω`;
+                let suffix = (currentProblem.unit === "Вт") ? " Вт" : ((currentProblem.unit === "Ω") ? " Ω" : " ед");
+                btn.innerText = `${val} ${suffix}`;
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if(!waitForAnswer) handleAnswer(opt);
+                    if(!waitForAnswer) handleAnswer(val);
                 });
                 btn.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if(!waitForAnswer) handleAnswer(opt);
+                    if(!waitForAnswer) handleAnswer(val);
                 });
                 answersContainer.appendChild(btn);
             });
         }
         
-        function handleAnswer(selectedVal) {
+        function handleAnswer(selected) {
             if(waitForAnswer) return;
-            const isCorrect = (selectedVal === currentProblem.correctAnswer);
+            const isCorrect = (selected === currentProblem.correctAnswer);
             if(isCorrect) {
                 let points = 15 * level;
                 score += points;
                 scoreSpan.innerText = score;
-                messageDiv.innerHTML = `✅ ОТЛИЧНО! +${points} МВт. ${currentProblem.hint} = ${currentProblem.correctAnswer} ✅`;
-                drawCorrectFlashEffect();
+                messageDiv.innerHTML = `✅ ГРОЗА ПРИРУЧЕНА! +${points} МВт. ${currentProblem.hint} = ${currentProblem.correctAnswer} ✅`;
+                drawLightningFlash(true);
                 if(score >= level * 70 && level < 20) {
                     level++;
                     levelSpan.innerText = level;
-                    messageDiv.innerHTML += `<br>🎉 ПОВЫШЕНИЕ УРОВНЯ СЕТИ ДО ${level}! Задачи сложнее 🎉`;
+                    messageDiv.innerHTML += `<br>🎆 НАПРЯЖЕНИЕ ВОЗРАСТАЕТ! УРОВЕНЬ ${level} 🎆`;
                 }
             } else {
                 stability--;
                 livesSpan.innerText = stability;
-                messageDiv.innerHTML = `❌ СБОЙ! Правильный ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌`;
-                drawWrongFlashEffect();
+                messageDiv.innerHTML = `❌ ПРОБОЙ ИЗОЛЯЦИИ! Правильно: ${currentProblem.correctAnswer} ${currentProblem.unit}. ${currentProblem.hint} ❌`;
+                drawLightningFlash(false);
                 if(stability <= 0) {
                     gameDefeat();
                     return;
@@ -467,17 +490,17 @@
             nextTimer = setTimeout(() => {
                 if(stability > 0) loadNewChallenge();
                 nextTimer = null;
-            }, 1300);
-            drawPowerSystem();
+            }, 1400);
+            drawPowerGridWithLightnings();
         }
         
         function gameDefeat() {
             waitForAnswer = true;
-            messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Игра окончена. Ваш счёт: ${score} МВт. Перезапустите подстанцию. 💥`;
-            drawGameOverVisual();
+            messageDiv.innerHTML = `💀⚡ КОРОТКОЕ ЗАМЫКАНИЕ! Энергосистема разрушена. Ваш счёт: ${score} МВт. Перезапустите подстанцию. ⚡💀`;
+            drawGameOverScene();
         }
         
-        function restart() {
+        function restartGame() {
             if(nextTimer) clearTimeout(nextTimer);
             score = 0;
             stability = 3;
@@ -489,101 +512,135 @@
             loadNewChallenge();
         }
         
-        // ============= ВИЗУАЛИЗАЦИЯ ЭНЕРГОСИСТЕМЫ (динамичная, интересная) ============
-        function drawPowerSystem() {
+        // =============== ОТРИСОВКА С МОЛНИЯМИ, ЭЛЕКТРИЧЕСКИМИ ДУГАМИ ===============
+        function drawPowerGridWithLightnings() {
             ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-            // фон - электрощит
-            ctx.fillStyle = "#121f1c";
+            // тёмный фон с искрами
+            const grad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+            grad.addColorStop(0, "#021007");
+            grad.addColorStop(1, "#091a14");
+            ctx.fillStyle = grad;
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            // турбина/генератор
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#3a6b55";
-            ctx.beginPath();
-            ctx.ellipse(100, 200, 50, 70, 0, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = "#d4c97a";
-            ctx.font = "bold 24px monospace";
-            ctx.fillText("⚙️", 82, 215);
-            ctx.fillStyle = "#cfe6cf";
-            ctx.font = "12px monospace";
-            ctx.fillText("ГЕНЕРАТОР", 68, 260);
             
-            // линии электропередач
+            // рисуем линии электропередач с "искрящими" точками
             ctx.beginPath();
-            ctx.moveTo(150, 200);
-            ctx.lineTo(280, 180);
-            ctx.lineTo(400, 210);
-            ctx.lineTo(550, 170);
-            ctx.lineTo(680, 200);
-            ctx.strokeStyle = "#f5b042";
+            ctx.moveTo(70, 180);
+            ctx.lineTo(250, 150);
+            ctx.lineTo(420, 210);
+            ctx.lineTo(580, 140);
+            ctx.lineTo(720, 190);
+            ctx.strokeStyle = "#ffbb55";
             ctx.lineWidth = 4;
             ctx.stroke();
             ctx.setLineDash([8, 12]);
             ctx.stroke();
             ctx.setLineDash([]);
             
-            // "Лампочка-город" справа
-            ctx.fillStyle = "#f5cb5c";
-            ctx.beginPath();
-            ctx.arc(690, 180, 30, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = "#664d1a";
-            ctx.font = "22px monospace";
-            ctx.fillText("🏙️", 678, 192);
+            // Молнии по краям (декоративные)
+            for(let i=0;i<3;i++) {
+                ctx.beginPath();
+                let startX = 30 + i*200;
+                let startY = 40;
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(startX+25, startY+45);
+                ctx.lineTo(startX+5, startY+70);
+                ctx.lineTo(startX+38, startY+115);
+                ctx.strokeStyle = `rgba(255, 200, 70, ${0.5 + Math.sin(Date.now()*0.008)*0.2})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
             
-            // Индикатор нагрузки + уравнение
+            // Трансформаторная подстанция слева
+            ctx.fillStyle = "#6a5a3e";
+            ctx.fillRect(45, 260, 65, 80);
+            ctx.fillStyle = "#d9b34c";
+            ctx.font = "bold 16px monospace";
+            ctx.fillText("⚡", 68, 305);
+            ctx.fillText("HV", 65, 335);
+            
+            // Электрический щит / батарея справа
+            ctx.fillStyle = "#89652b";
+            ctx.fillRect(690, 270, 70, 90);
+            ctx.fillStyle = "#ffdd77";
+            ctx.font = "20px monospace";
+            ctx.fillText("⚡⚡", 705, 315);
+            
+            // Анимация искр – случайные точки
+            for(let s=0; s<12; s++) {
+                if(Math.random() > 0.7) {
+                    ctx.fillStyle = `rgba(255, 180, 40, ${Math.random()*0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(150 + Math.random() * 600, 80 + Math.random() * 300, Math.random() * 4 + 1, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+            
+            // Отображение текущего уровня стабильности в виде "искровых индикаторов"
+            for(let s=0; s<stability; s++) {
+                ctx.fillStyle = "#ffaa44";
+                ctx.shadowBlur = 8;
+                ctx.fillRect(30 + s*45, 410, 28, 12);
+                ctx.fillStyle = "yellow";
+                ctx.fillRect(31 + s*45, 411, 26, 4);
+            }
+            ctx.shadowBlur = 0;
+            
+            // Текст задания на канвасе для пущей атмосферы
             if(currentProblem) {
-                ctx.fillStyle = "#010f0ccc";
-                ctx.fillRect(20, 320, 380, 85);
-                ctx.fillStyle = "#bbffaa";
-                ctx.font = "bold 14px monospace";
-                ctx.fillText(currentProblem.title, 30, 345);
-                ctx.font = "12px monospace";
-                ctx.fillStyle = "#fad974";
-                ctx.fillText(currentProblem.equation, 30, 370);
-                ctx.fillStyle = "#cceeff";
-                ctx.fillText(currentProblem.question.slice(0, 32), 30, 395);
+                ctx.font = "bold 12px monospace";
+                ctx.fillStyle = "#ffea99";
+                ctx.fillText(`⚡ ЗАДАНИЕ: ${currentProblem.question.substring(0, 28)}`, 30, 390);
             }
             
-            // Уровень стабильности (индикатор)
-            for(let i=0; i<stability; i++) {
-                ctx.fillStyle = "#61dafb";
-                ctx.fillRect(30 + i*35, 290, 25, 15);
-            }
             if(stability <= 0) {
                 ctx.fillStyle = "#ff6666aa";
-                ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-                ctx.fillStyle = "white";
-                ctx.font = "bold 26px monospace";
-                ctx.fillText("СИСТЕМА ОТКЛЮЧЕНА", CANVAS_W/2-150, CANVAS_H/2);
+                ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+                ctx.fillStyle = "#ffaa33";
+                ctx.font = "bold 30px monospace";
+                ctx.fillText("⚡ СИСТЕМА РАЗРУШЕНА ⚡", CANVAS_W/2-180, CANVAS_H/2);
             }
         }
         
-        function drawCorrectFlashEffect() {
-            ctx.fillStyle = "#66ff99aa";
+        function drawLightningFlash(isCorrect) {
+            ctx.fillStyle = isCorrect ? "#ffff99cc" : "#ff6644cc";
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            setTimeout(()=>drawPowerSystem(), 150);
+            // дополнительные молнии
+            for(let i=0;i<6;i++) {
+                ctx.beginPath();
+                ctx.moveTo(Math.random()*CANVAS_W, 0);
+                ctx.lineTo(Math.random()*CANVAS_W, CANVAS_H);
+                ctx.strokeStyle = isCorrect ? "#ffff00" : "#ff3300";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+            setTimeout(()=>drawPowerGridWithLightnings(), 130);
         }
         
-        function drawWrongFlashEffect() {
-            ctx.fillStyle = "#ff6666aa";
+        function drawGameOverScene() {
+            drawPowerGridWithLightnings();
+            ctx.fillStyle = "#aa2222bb";
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            setTimeout(()=>drawPowerSystem(), 180);
+            ctx.fillStyle = "#ffaa55";
+            ctx.font = "bold 26px monospace";
+            ctx.fillText("⚡ OVERLOAD ⚡", CANVAS_W/2-100, CANVAS_H/2);
         }
         
-        function drawGameOverVisual() {
-            drawPowerSystem();
-            ctx.fillStyle = "#d44";
-            ctx.font = "bold 24px monospace";
-            ctx.fillText("GAME OVER", CANVAS_W/2-80, CANVAS_H/2);
+        // Кнопка перезапуска
+        document.getElementById('restartGame').addEventListener('click', () => restartGame());
+        document.getElementById('restartGame').addEventListener('touchstart', (e) => { e.preventDefault(); restartGame(); });
+        
+        // анимация молний на канвасе (лёгкое мерцание)
+        let animFrame;
+        function animateLightning() {
+            if(!waitForAnswer || stability>0) {
+                drawPowerGridWithLightnings();
+            }
+            animFrame = requestAnimationFrame(animateLightning);
         }
+        animateLightning();
         
-        document.getElementById('restartGame').addEventListener('click', () => restart());
-        document.getElementById('restartGame').addEventListener('touchstart', (e) => { e.preventDefault(); restart(); });
-        
-        // Инициализация
         function init() {
-            restart();
+            restartGame();
         }
         init();
     })();
