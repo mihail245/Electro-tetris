@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Энергомост: Математика энергетика | Рост сложности</title>
+    <title>Энергомост: Математика энергетика | +Админка</title>
     <style>
         * {
             user-select: none;
@@ -37,6 +37,7 @@
             padding: 20px 24px 30px 24px;
             border-bottom: 6px solid #3a7a5a;
             transition: all 0.2s;
+            position: relative;
         }
 
         .game-layout {
@@ -195,6 +196,50 @@
             color: #1d2a0e;
         }
 
+        /* АДМИНКА — появляется только при ?admin */
+        .admin-panel {
+            margin-top: 20px;
+            background: #2a2f2ccc;
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 16px 20px;
+            border: 2px solid #ffaa55;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            transition: all 0.2s;
+        }
+        .admin-btn {
+            background: #3a2c1a;
+            border: 1px solid #ffaa66;
+            color: #ffdd99;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: monospace;
+            transition: 0.05s linear;
+        }
+        .admin-btn:active {
+            transform: scale(0.96);
+            background: #5e441f;
+        }
+        .admin-status {
+            background: #00000088;
+            padding: 6px 12px;
+            border-radius: 28px;
+            color: #ffcc88;
+            font-size: 0.85rem;
+        }
+        .admin-label {
+            color: #ffaa66;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
         @media (max-width: 780px) {
             .game-layout {
                 flex-direction: column;
@@ -209,16 +254,16 @@
             .info-panel {
                 gap: 8px;
             }
-            .diff-box, .progress-box {
-                padding: 4px 12px;
-                font-size: 0.8rem;
+            .admin-panel {
+                flex-direction: column;
+                align-items: stretch;
             }
         }
     </style>
 </head>
 <body>
 <div class="game-wrapper">
-    <div class="game-container">
+    <div class="game-container" id="gameContainer">
         <div class="game-layout">
             <div class="canvas-area">
                 <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
@@ -242,21 +287,21 @@
             <div class="progress-box"><span>🏗️ ЭНЕРГОМОСТ</span><span id="bridgeProgress">0/15</span></div>
             <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК</button>
         </div>
+        <!-- Сюда будет вставлена админ-панель, если параметр admin активен -->
+        <div id="adminRoot"></div>
     </div>
 </div>
 
 <script>
     (function(){
-        // ---------- НОВАЯ МЕХАНИКА: СЛОЖНОСТЬ РАСТЁТ С КАЖДЫМ ПРАВИЛЬНЫМ ОТВЕТОМ ----------
-        // Каждый правильный ответ увеличивает сложность на ~6-7%, максимальная сложность 100%
-        // Сложность влияет на:
-        // - Диапазон чисел в задачах (напряжение, ток, сопротивления)
-        // - Количество сложных типов задач (параллельные цепи, КПД становятся чаще)
-        // - Вариативность ответов (разброс вариантов становится больше)
+        // ---------- АДМИНКА: доступ по ?admin в URL ----------
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdminMode = urlParams.has('admin');
         
-        const TARGET_CORRECT = 15;      // 15 правильных = полный мост = победа
-        let correctCount = 0;            // прогресс строительства моста (0..15)
-        let difficulty = 0;              // 0..100 (%)
+        // ---------- ИГРОВЫЕ ПЕРЕМЕННЫЕ ----------
+        const TARGET_CORRECT = 15;
+        let correctCount = 0;
+        let difficulty = 0;
         let gameActive = true;
         let victoryFlag = false;
         
@@ -268,8 +313,6 @@
         
         let score = 0;
         let stability = 3;
-        // Уровень теперь не используется для сложности, оставлен для отображения (можно удалить, но оставим legacy)
-        let displayLevel = 1;
         let currentProblem = null;
         let optionsArray = [];
         let waitForAnswer = false;
@@ -278,7 +321,6 @@
         // DOM элементы
         const scoreSpan = document.getElementById('scoreValue');
         const livesSpan = document.getElementById('livesValue');
-        const levelSpan = document.getElementById('levelValue');
         const difficultySpan = document.getElementById('difficultyValue');
         const bridgeProgressSpan = document.getElementById('bridgeProgress');
         const messageDiv = document.getElementById('gameMessage');
@@ -286,35 +328,26 @@
         const questionDisplay = document.getElementById('questionDisplay');
         const answersContainer = document.getElementById('answersContainer');
         
-        // Прячем старый levelSpan, но оставим для совместимости (заменим текст)
-        if(levelSpan) levelSpan.innerText = "—";
-        
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        // Обновить отображение сложности и прогресса
         function updateUI() {
             bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
             difficultySpan.innerText = `${Math.floor(difficulty)}%`;
         }
         
-        // Функция получения множителя сложности (от 1.0 до ~2.8)
         function getDifficultyMultiplier() {
             return 1.0 + (difficulty / 100) * 1.8;
         }
         
-        // Генерация задач с плавающей сложностью
+        // Генерация задач (сложность растёт динамически)
         function generateCoolProblem() {
             const mult = getDifficultyMultiplier();
-            // Тип задачи: с ростом сложности чаще встречаются параллельные цепи и КПД (типы 2 и 3)
             let type = 0;
-            if (difficulty < 25) {
-                type = randInt(0, 2); // больше простых мощностей и закона Ома
-            } else if (difficulty < 60) {
-                type = randInt(0, 3);
-            } else {
-                // высокая сложность: больше параллельных цепей и КПД (2 и 3)
+            if (difficulty < 25) type = randInt(0, 2);
+            else if (difficulty < 60) type = randInt(0, 3);
+            else {
                 let r = randInt(0, 100);
                 if (r < 35) type = 0;
                 else if (r < 60) type = 1;
@@ -322,11 +355,7 @@
                 else type = 3;
             }
             
-            // Базовые диапазоны с учётом сложности
-            let baseVoltage = 15 + Math.floor(10 * mult);
-            let baseCurrent = 2 + Math.floor(3 * mult);
-            
-            if(type === 0) { // Мощность
+            if(type === 0) {
                 let voltage = randInt(12, Math.min(150, 40 + Math.floor(25 * mult)));
                 let current = randInt(1, Math.min(30, 8 + Math.floor(8 * mult)));
                 let power = voltage * current;
@@ -338,10 +367,9 @@
                     hint: "P = U × I",
                 };
             }
-            else if(type === 1) { // Закон Ома
+            else if(type === 1) {
                 let voltage = randInt(18, Math.min(200, 60 + Math.floor(45 * mult)));
                 let current = randInt(2, Math.min(35, 8 + Math.floor(10 * mult)));
-                // Сделаем resistance целым, подбирая voltage
                 let resistance = Math.floor(voltage / current);
                 if(resistance < 1) resistance = 2;
                 voltage = resistance * current;
@@ -353,7 +381,7 @@
                     hint: "R = U / I",
                 };
             }
-            else if(type === 2) { // Смешанная цепь: последовательная или параллельная (чаще параллельная при высокой сложности)
+            else if(type === 2) {
                 let useParallel = (difficulty > 50) ? (randInt(0,100) < 70) : (randInt(0,1) === 1);
                 if(!useParallel) {
                     let R_known = randInt(15, Math.min(120, 40 + Math.floor(35 * mult)));
@@ -397,7 +425,7 @@
                     };
                 }
             }
-            else { // КПД
+            else {
                 let efficiency = randInt(65, 98);
                 let inputPower = randInt(100, Math.min(800, 200 + Math.floor(250 * mult)));
                 let outputPower = Math.floor(inputPower * efficiency / 100);
@@ -411,7 +439,6 @@
             }
         }
         
-        // Генерация вариантов: разброс увеличивается со сложностью
         function generateOptions(correct) {
             let opts = new Set();
             opts.add(correct);
@@ -434,6 +461,30 @@
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
             return arr;
+        }
+        
+        // Принудительная победа (админ)
+        function forceVictory() {
+            if(victoryFlag || !gameActive) return;
+            if(nextTimer) clearTimeout(nextTimer);
+            // Добиваем прогресс до победы
+            while(correctCount < TARGET_CORRECT) {
+                correctCount++;
+                let newDiff = (correctCount / TARGET_CORRECT) * 100;
+                difficulty = Math.min(100, newDiff);
+            }
+            updateUI();
+            victoryGame();
+            drawPowerSystem();
+        }
+        
+        // Принудительно ответить правильно
+        function forceCorrectAnswer() {
+            if(!gameActive || victoryFlag || waitForAnswer) return;
+            if(currentProblem) {
+                // эмулируем правильный ответ с нужным значением
+                handleAnswer(currentProblem.correctAnswer);
+            }
         }
         
         function victoryGame() {
@@ -459,19 +510,15 @@
             if(!gameActive || waitForAnswer || victoryFlag) return;
             const isCorrect = (selectedVal === currentProblem.correctAnswer);
             if(isCorrect) {
-                let points = 10 + Math.floor(difficulty / 5); // бонус от сложности
+                let points = 10 + Math.floor(difficulty / 5);
                 score += points;
                 scoreSpan.innerText = score;
-                // Увеличиваем прогресс моста И сложность!
                 correctCount++;
-                // Сложность растёт: каждый правильный ответ добавляет ~6.67% к сложности (макс 100%)
                 let newDifficulty = (correctCount / TARGET_CORRECT) * 100;
                 difficulty = Math.min(100, newDifficulty);
                 updateUI();
-                
                 messageDiv.innerHTML = `✅ ВЕРНО! +${points} МВт | Сложность ↑ ${Math.floor(difficulty)}% | Мост ${correctCount}/${TARGET_CORRECT}`;
                 drawCorrectFlashEffect();
-                
                 if(correctCount >= TARGET_CORRECT) {
                     victoryGame();
                     drawPowerSystem();
@@ -552,13 +599,11 @@
             drawPowerSystem();
         }
         
-        // ============= ВИЗУАЛИЗАЦИЯ С РОСТОМ СЛОЖНОСТИ И МОСТОМ =============
+        // ---------- ОТРИСОВКА (визуализация энергомоста и сложности) ----------
         function drawPowerSystem() {
             ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
             ctx.fillStyle = "#121f1c";
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            
-            // Генератор
             ctx.fillStyle = "#3a6b55";
             ctx.beginPath();
             ctx.ellipse(100, 200, 50, 70, 0, 0, Math.PI*2);
@@ -569,8 +614,6 @@
             ctx.fillStyle = "#cfe6cf";
             ctx.font = "12px monospace";
             ctx.fillText("ГЕНЕРАТОР", 68, 260);
-            
-            // Город
             ctx.fillStyle = "#f5cb5c";
             ctx.beginPath();
             ctx.arc(690, 180, 30, 0, Math.PI*2);
@@ -578,47 +621,33 @@
             ctx.fillStyle = "#664d1a";
             ctx.font = "22px monospace";
             ctx.fillText("🏙️", 678, 192);
-            ctx.fillStyle = "#ffe2a4";
-            ctx.font = "10px monospace";
-            ctx.fillText("ГОРОД", 672, 222);
-            
-            // Путевые точки моста
-            const waypoints = [
-                {x:150, y:200}, {x:280, y:180}, {x:400, y:210}, 
-                {x:550, y:170}, {x:660, y:190}, {x:690, y:180}
-            ];
-            const totalLength = computeTotalLength(waypoints);
-            let targetProgress = Math.min(1, correctCount / TARGET_CORRECT);
-            let currentDist = totalLength * targetProgress;
-            
-            // Серая основа
+            const waypoints = [{x:150,y:200},{x:280,y:180},{x:400,y:210},{x:550,y:170},{x:660,y:190},{x:690,y:180}];
+            const totalLen = computeTotalLength(waypoints);
+            let progress = Math.min(1, correctCount / TARGET_CORRECT);
+            let curDist = totalLen * progress;
             ctx.beginPath();
-            for(let i=0; i<waypoints.length-1; i++) {
+            for(let i=0;i<waypoints.length-1;i++) {
                 if(i===0) ctx.moveTo(waypoints[i].x, waypoints[i].y);
                 ctx.lineTo(waypoints[i+1].x, waypoints[i+1].y);
             }
             ctx.strokeStyle = "#4a5b55";
             ctx.lineWidth = 8;
             ctx.stroke();
-            
-            // Построенная часть (яркая)
             ctx.beginPath();
-            let accumulated = 0;
-            let started = false;
-            for(let i=0; i<waypoints.length-1; i++) {
-                let p1 = waypoints[i], p2 = waypoints[i+1];
-                let segLen = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-                if(accumulated + segLen <= currentDist) {
-                    if(!started) { ctx.moveTo(p1.x, p1.y); started=true; }
-                    ctx.lineTo(p2.x, p2.y);
-                    accumulated += segLen;
-                } else if(accumulated < currentDist && accumulated+segLen > currentDist) {
-                    let remain = currentDist - accumulated;
-                    let t = remain/segLen;
-                    let ix = p1.x + (p2.x-p1.x)*t;
-                    let iy = p1.y + (p2.y-p1.y)*t;
-                    if(!started) ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(ix, iy);
+            let acc=0, started=false;
+            for(let i=0;i<waypoints.length-1;i++) {
+                let p1=waypoints[i], p2=waypoints[i+1];
+                let seg=Math.hypot(p2.x-p1.x, p2.y-p1.y);
+                if(acc+seg<=curDist){
+                    if(!started){ctx.moveTo(p1.x,p1.y);started=true;}
+                    ctx.lineTo(p2.x,p2.y);
+                    acc+=seg;
+                } else if(acc<curDist && acc+seg>curDist){
+                    let remain=curDist-acc;
+                    let t=remain/seg;
+                    let ix=p1.x+(p2.x-p1.x)*t, iy=p1.y+(p2.y-p1.y)*t;
+                    if(!started)ctx.moveTo(p1.x,p1.y);
+                    ctx.lineTo(ix,iy);
                     break;
                 } else break;
             }
@@ -626,112 +655,78 @@
             ctx.lineWidth = 6;
             ctx.shadowBlur = 10;
             ctx.stroke();
-            ctx.shadowBlur = 0;
-            
-            // Искры
-            if(targetProgress > 0) {
-                ctx.fillStyle = "#ffaa44";
-                for(let i=0; i<Math.min(12, Math.floor(targetProgress*12)); i++) {
-                    let tPos = (i/12) * currentDist;
-                    let pt = getPointAtDistance(waypoints, tPos);
-                    if(pt) { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); }
+            ctx.shadowBlur=0;
+            if(progress>0){
+                ctx.fillStyle="#ffaa44";
+                for(let i=0;i<Math.min(12,Math.floor(progress*12));i++){
+                    let pt=getPointAtDistance(waypoints,(i/12)*curDist);
+                    if(pt){ctx.beginPath();ctx.arc(pt.x,pt.y,3,0,Math.PI*2);ctx.fill();}
                 }
             }
-            
-            // Текущая задача
-            if(currentProblem && gameActive && !victoryFlag) {
-                ctx.fillStyle = "#010f0ccc";
-                ctx.fillRect(20, 320, 400, 85);
-                ctx.fillStyle = "#bbffaa";
-                ctx.font = "bold 13px monospace";
-                ctx.fillText(currentProblem.title, 30, 345);
-                ctx.font = "11px monospace";
-                ctx.fillStyle = "#fad974";
-                ctx.fillText(currentProblem.equation, 30, 370);
-                ctx.fillStyle = "#cceeff";
-                ctx.fillText(currentProblem.question.slice(0, 34), 30, 395);
+            if(currentProblem && gameActive && !victoryFlag){
+                ctx.fillStyle="#010f0ccc";
+                ctx.fillRect(20,320,400,85);
+                ctx.fillStyle="#bbffaa";
+                ctx.font="bold 13px monospace";
+                ctx.fillText(currentProblem.title,30,345);
+                ctx.font="11px monospace";
+                ctx.fillStyle="#fad974";
+                ctx.fillText(currentProblem.equation,30,370);
+                ctx.fillStyle="#cceeff";
+                ctx.fillText(currentProblem.question.slice(0,34),30,395);
             }
-            
-            // Отображение стабильности
-            for(let i=0; i<stability; i++) {
-                ctx.fillStyle = "#61dafb";
-                ctx.fillRect(30 + i*35, 290, 25, 15);
+            for(let i=0;i<stability;i++){ ctx.fillStyle="#61dafb"; ctx.fillRect(30+i*35,290,25,15); }
+            if(stability<=0 && !victoryFlag){
+                ctx.fillStyle="#ff6666aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+                ctx.fillStyle="white"; ctx.font="bold 26px monospace"; ctx.fillText("СИСТЕМА ОТКЛЮЧЕНА", CANVAS_W/2-150, CANVAS_H/2);
             }
-            
-            // Эффект повышенной сложности: молнии на фоне
-            if(difficulty > 50) {
-                ctx.beginPath();
-                for(let s=0; s<3; s++) {
-                    let x = 500 + Math.random() * 200;
-                    let y = 50 + Math.random() * 100;
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x-15, y+30);
-                    ctx.lineTo(x+5, y+40);
-                    ctx.lineTo(x-10, y+70);
-                    ctx.strokeStyle = "#ffdd77";
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-            }
-            
-            if(stability <= 0 && !victoryFlag) {
-                ctx.fillStyle = "#ff6666aa";
-                ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-                ctx.fillStyle = "white";
-                ctx.font = "bold 26px monospace";
-                ctx.fillText("СИСТЕМА ОТКЛЮЧЕНА", CANVAS_W/2-150, CANVAS_H/2);
-            }
-            if(victoryFlag) {
-                ctx.fillStyle = "#ffdd88cc";
-                ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-                ctx.fillStyle = "#2c5a2e";
-                ctx.font = "bold 28px monospace";
-                ctx.fillText("ЭНЕРГОМОСТ ПОСТРОЕН!", CANVAS_W/2-170, CANVAS_H/2-20);
-                ctx.font = "18px monospace";
-                ctx.fillStyle = "#ffefb9";
-                ctx.fillText("ПОБЕДА! ГОРОД ВОЗРОДИЛСЯ", CANVAS_W/2-170, CANVAS_H/2+30);
+            if(victoryFlag){
+                ctx.fillStyle="#ffdd88cc"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+                ctx.fillStyle="#2c5a2e"; ctx.font="bold 28px monospace"; ctx.fillText("ЭНЕРГОМОСТ ПОСТРОЕН!", CANVAS_W/2-170, CANVAS_H/2-20);
+                ctx.fillStyle="#ffefb9"; ctx.font="18px monospace"; ctx.fillText("ПОБЕДА! ГОРОД ВОЗРОДИЛСЯ", CANVAS_W/2-170, CANVAS_H/2+30);
             }
         }
         
-        function computeTotalLength(points) {
-            let len=0;
-            for(let i=0;i<points.length-1;i++) len += Math.hypot(points[i+1].x-points[i].x, points[i+1].y-points[i].y);
-            return len;
-        }
+        function computeTotalLength(points){ let l=0; for(let i=0;i<points.length-1;i++) l+=Math.hypot(points[i+1].x-points[i].x, points[i+1].y-points[i].y); return l; }
+        function getPointAtDistance(points,d){ let a=0; for(let i=0;i<points.length-1;i++){ let p1=points[i],p2=points[i+1]; let s=Math.hypot(p2.x-p1.x,p2.y-p1.y); if(a+s>=d){ let t=(d-a)/s; return {x:p1.x+(p2.x-p1.x)*t, y:p1.y+(p2.y-p1.y)*t}; } a+=s; } return points[points.length-1]; }
+        function drawCorrectFlashEffect(){ ctx.fillStyle="#66ff99aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); setTimeout(()=>drawPowerSystem(),150); }
+        function drawWrongFlashEffect(){ ctx.fillStyle="#ff6666aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); setTimeout(()=>drawPowerSystem(),180); }
+        function drawGameOverVisual(){ drawPowerSystem(); }
+        function drawVictoryScene(){ drawPowerSystem(); }
         
-        function getPointAtDistance(points, dist) {
-            let acc=0;
-            for(let i=0;i<points.length-1;i++) {
-                let p1=points[i], p2=points[i+1];
-                let seg=Math.hypot(p2.x-p1.x, p2.y-p1.y);
-                if(acc+seg>=dist) {
-                    let t=(dist-acc)/seg;
-                    return {x:p1.x+(p2.x-p1.x)*t, y:p1.y+(p2.y-p1.y)*t};
-                }
-                acc+=seg;
-            }
-            return points[points.length-1];
+        // ---------- АДМИНКА (рендер только если режим admin) ----------
+        function renderAdminPanel() {
+            const adminRoot = document.getElementById('adminRoot');
+            if(!isAdminMode) return;
+            const panel = document.createElement('div');
+            panel.className = 'admin-panel';
+            panel.innerHTML = `
+                <span class="admin-label">🔧 АДМИН-ПАНЕЛЬ (СКРЫТЫЙ РЕЖИМ)</span>
+                <div class="admin-status">🎮 Управление игрой</div>
+                <button class="admin-btn" id="adminForceCorrect">✅ ВЫДАТЬ ПРАВИЛЬНЫЙ ОТВЕТ</button>
+                <button class="admin-btn" id="adminForceVictory">🏆 НЕМЕДЛЕННАЯ ПОБЕДА (МОСТ)</button>
+                <button class="admin-btn" id="adminRestart">⟳ ПЕРЕЗАПУСК (АДМИН)</button>
+                <span class="admin-status">⚡ Текущий ответ: <span id="adminCurrentAnswer">—</span></span>
+            `;
+            adminRoot.appendChild(panel);
+            const updAnswer = () => {
+                const span = document.getElementById('adminCurrentAnswer');
+                if(span && currentProblem) span.innerText = currentProblem.correctAnswer;
+                else if(span) span.innerText = "—";
+            };
+            document.getElementById('adminForceCorrect')?.addEventListener('click', () => { forceCorrectAnswer(); updAnswer(); });
+            document.getElementById('adminForceVictory')?.addEventListener('click', () => { forceVictory(); updAnswer(); });
+            document.getElementById('adminRestart')?.addEventListener('click', () => { restart(); updAnswer(); });
+            setInterval(updAnswer, 300);
         }
-        
-        function drawCorrectFlashEffect() {
-            ctx.fillStyle = "#66ff99aa";
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            setTimeout(()=>drawPowerSystem(), 150);
-        }
-        
-        function drawWrongFlashEffect() {
-            ctx.fillStyle = "#ff6666aa";
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            setTimeout(()=>drawPowerSystem(), 180);
-        }
-        
-        function drawGameOverVisual() { drawPowerSystem(); }
-        function drawVictoryScene() { drawPowerSystem(); }
         
         document.getElementById('restartGame').addEventListener('click', () => restart());
         document.getElementById('restartGame').addEventListener('touchstart', (e) => { e.preventDefault(); restart(); });
         
-        function init() { restart(); }
+        function init() {
+            restart();
+            if(isAdminMode) renderAdminPanel();
+        }
         init();
     })();
 </script>
