@@ -2,34 +2,42 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Математика электрика: Исправь цепь</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Математика электрика: Исправь цепь | Адаптивная игра</title>
     <style>
         * {
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
 
         body {
-            background: linear-gradient(145deg, #1a2a3a 0%, #0f1a24 100%);
+            background: linear-gradient(145deg, #0b2b1f 0%, #05140e 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             font-family: 'Segoe UI', 'Courier New', 'Monaco', monospace;
             margin: 0;
-            padding: 20px;
+            padding: 16px;
         }
 
-        /* Игровой контейнер */
+        /* Основной контейнер - резиновый */
+        .game-wrapper {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
         .game-container {
             background: #2c3e2f;
-            background-image: radial-gradient(circle at 20% 30%, rgba(50,80,50,0.6) 2%, transparent 2.5%);
+            background-image: radial-gradient(circle at 20% 30%, rgba(60,100,50,0.5) 2%, transparent 2.5%);
             background-size: 28px 28px;
-            border-radius: 64px 64px 48px 48px;
-            box-shadow: 0 20px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-            padding: 20px 25px 30px 25px;
+            border-radius: 48px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+            padding: 20px 20px 25px 20px;
             border-bottom: 6px solid #5a7a4a;
+            transition: all 0.2s;
         }
 
         canvas {
@@ -39,17 +47,21 @@
             box-shadow: 0 12px 28px black;
             cursor: pointer;
             background-color: #1e2a22;
+            width: 100%;
+            height: auto;
+            background: #192f21;
         }
 
         .info-panel {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
             margin-top: 20px;
-            gap: 20px;
+            gap: 12px;
             flex-wrap: wrap;
-            background: #0f1f1a;
-            padding: 12px 20px;
+            background: #0f1f1ad9;
+            backdrop-filter: blur(4px);
+            padding: 10px 18px;
             border-radius: 60px;
             color: #d4f1d9;
             text-shadow: 0 2px 2px black;
@@ -59,11 +71,11 @@
         .score-box, .lives-box, .level-box {
             background: #00000066;
             backdrop-filter: blur(4px);
-            padding: 6px 18px;
+            padding: 6px 16px;
             border-radius: 40px;
             display: flex;
-            gap: 12px;
-            font-size: 1.4rem;
+            gap: 10px;
+            font-size: 1.2rem;
             letter-spacing: 1px;
         }
 
@@ -75,7 +87,7 @@
             font-family: 'Courier New', monospace;
             font-weight: bold;
             color: #f0f0f0;
-            min-width: 70px;
+            min-width: 60px;
         }
 
         .restart-btn {
@@ -83,13 +95,14 @@
             border: none;
             font-family: inherit;
             font-weight: bold;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             padding: 6px 20px;
             border-radius: 40px;
             color: #1e2a1c;
             cursor: pointer;
-            transition: 0.2s;
+            transition: 0.1s linear;
             box-shadow: 0 3px 0 #a33f00;
+            touch-action: manipulation;
         }
 
         .restart-btn:active {
@@ -99,34 +112,70 @@
 
         .message-area {
             background: #1e2a1e;
-            padding: 8px 18px;
-            border-radius: 28px;
+            padding: 10px 16px;
+            border-radius: 32px;
             font-size: 0.9rem;
             text-align: center;
-            flex-grow: 1;
+            flex: 1;
             color: #ffecb3;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
             font-weight: bold;
+            word-break: break-word;
         }
 
+        /* Адаптация для телефонов (ПК-версия определяется по ширине и наличию параметра PC в URL) 
+           но стили работают универсально: на телефоне увеличиваем кнопки, шрифты */
         @media (max-width: 700px) {
+            body {
+                padding: 8px;
+            }
             .game-container {
-                padding: 12px 16px 20px 16px;
+                padding: 12px 12px 18px 12px;
             }
             .score-box, .lives-box, .level-box {
-                font-size: 1rem;
+                font-size: 0.9rem;
                 padding: 4px 12px;
+                gap: 6px;
+            }
+            .restart-btn {
+                font-size: 0.9rem;
+                padding: 5px 16px;
+            }
+            .message-area {
+                font-size: 0.75rem;
+                padding: 8px 10px;
             }
             .info-panel {
-                gap: 10px;
+                gap: 8px;
+            }
+        }
+
+        /* Для очень маленьких экранов (телефоны) */
+        @media (max-width: 550px) {
+            .score-box span:last-child, .lives-box span:last-child, .level-box span:last-child {
+                min-width: 45px;
+            }
+            .restart-btn {
+                font-size: 0.8rem;
+                padding: 5px 12px;
+            }
+        }
+
+        /* Специфичная пк-версия: если ширина >= 1024px, делаем более просторный вид, но не ломаем */
+        @media (min-width: 1024px) {
+            .game-container {
+                padding: 28px 32px 32px 32px;
+            }
+            .message-area {
+                font-size: 1rem;
             }
         }
     </style>
 </head>
 <body>
-<div>
+<div class="game-wrapper">
     <div class="game-container">
-        <canvas id="circuitCanvas" width="900" height="500" style="width:100%; height:auto; max-width:900px; aspect-ratio:900/500"></canvas>
+        <canvas id="circuitCanvas" width="1000" height="560" style="width:100%; height:auto; max-width:1000px; aspect-ratio:1000/560"></canvas>
         <div class="info-panel">
             <div class="score-box"><span>⚡ ОЧКИ</span><span id="scoreValue">0</span></div>
             <div class="lives-box"><span>🔋 ЖИЗНИ</span><span id="livesValue">3</span></div>
@@ -141,153 +190,145 @@
 
 <script>
     (function(){
-        // ---------- ИГРОВАЯ МЕХАНИКА: МАТЕМАТИКА ДЛЯ ЭЛЕКТРИКА ----------
-        // Электрик должен выбрать правильный номинал резистора, чтобы исправить участок цепи.
-        // Уравнение основано на законе Ома и последовательном соединении.
-        // Каждый уровень генерирует случайное уравнение вида: 
-        // "R_общ = R1 + R2 + ... + Rx"  или  "I = U / R" но в игровой форме 
-        // для наглядности — рассчитываем недостающий резистор R_unknown.
-        
-        // Варианты типов задач:
-        // 1) Последовательная цепь: R_total = R1 + R2 + R_missing. Даны R_total, R1, R2 → найти R_missing.
-        // 2) Параллельная цепь (два резистора): 1/R_total = 1/R1 + 1/R_missing → R_missing = 1 / (1/R_total - 1/R1)
-        // 3) Закон Ома: Дано напряжение U и ток I, найти сопротивление R = U / I (U/I дают целые числа для простоты).
-        
-        // Чтобы игра была дружественной и обучающей: все значения сопротивлений и ответов — целые (в омах).
+        // ========== ИГРА "МАТЕМАТИКА ЭЛЕКТРИКА" ==========
+        // Адаптивная версия: canvas размеры заданы 1000x560, но скейлинг через CSS.
+        // Определение версии для ПК или телефона через параметр URL ?PC (регистронезависимо)
+        // и дополнительно через ширину экрана: но это влияет только на размеры кнопок в canvas (чувствительность)
+        // Отрисовка сама подстроит расположение относительно фиксированной сетки 1000x560, но клики скейлятся.
         
         const canvas = document.getElementById('circuitCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Размеры холста
-        let width = 900, height = 500;
-        canvas.width = width;
-        canvas.height = height;
+        // Фиксированные размеры canvas (логические)
+        let CANVAS_W = 1000;
+        let CANVAS_H = 560;
+        canvas.width = CANVAS_W;
+        canvas.height = CANVAS_H;
         
         // Игровые переменные
-        let score = 0;          // очки за правильные ответы
-        let lives = 3;         // жизни (ошибки)
-        let level = 1;         // уровень сложности (влияет на диапазон чисел)
-        let currentProblem = null;   // объект задачи
-        let options = [];       // массив из 4 вариантов ответа (числа)
-        let selectedOptionIndex = -1;   // индекс выбранной кнопки (0-3)
-        let waitForNext = false;        // блокировка после ответа до следующей задачи
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let currentProblem = null;
+        let options = [];
+        let selectedOptionIndex = -1;
+        let waitForNext = false;
         let nextTimer = null;
         
-        // Элементы UI
+        // UI элементы
         const scoreSpan = document.getElementById('scoreValue');
         const livesSpan = document.getElementById('livesValue');
         const levelSpan = document.getElementById('levelValue');
         const messageDiv = document.getElementById('gameMessage');
         
-        // --------------------------------------------------------------
-        // Генерация случайного целого в диапазоне [min, max]
+        // Флаг ПК-стиля (для отладки или изменения логики, но визуально через CSS)
+        // также можно чуть увеличить радиус кликов, но координаты скейлятся.
+        let isPC = false;
+        
+        // Проверяем параметр PC в URL (можно использовать для точной настройки поведения)
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.has('PC') || urlParams.has('pc')) {
+            isPC = true;
+            document.body.classList.add('pc-mode');
+        } else {
+            // если ширина экрана больше 900px и нет touch, считаем как ПК условно (но не меняем интерфейс)
+            if(window.innerWidth > 900 && !('ontouchstart' in window)) {
+                isPC = true;
+            }
+        }
+        
+        // Вспомогательные функции
         function randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        // Генерация нового уравнения в зависимости от уровня
+        // Генерация задачи
         function generateProblem() {
-            // тип задачи: 0 - последовательная цепь, 1 - параллельная (два резистора), 2 - закон Ома
             const type = randInt(0, 2);
-            // базовый диапазон сопротивлений/напряжений растёт с уровнем
-            const baseMin = 10;
-            const baseMax = 50 + Math.min(level * 8, 150);
+            const baseMin = 8;
+            const baseMax = 45 + Math.min(level * 9, 160);
             
             if (type === 0) { 
-                // Последовательная цепь: R_total = R1 + R2 + R_missing
                 let R1 = randInt(baseMin, baseMax);
                 let R2 = randInt(baseMin, baseMax);
                 let R_missing = randInt(baseMin, baseMax);
                 let R_total = R1 + R2 + R_missing;
-                // Показываем: R_total = ? + ? + Rx  => найти Rx
                 return {
                     type: 'series',
-                    text: `Rᵢ = R₁ + R₂ + Rₓ     (последовательно)`,
+                    text: `⚡ Последовательное соединение`,
                     equation: `R₁ = ${R1} Ω,  R₂ = ${R2} Ω,  Rₒбщ = ${R_total} Ω`,
-                    question: `Чему равно сопротивление Rₓ (в омах)?`,
+                    question: `Найди сопротивление Rₓ (Ω)`,
                     correctAnswer: R_missing,
-                    visualHint: `R₁ ── R₂ ── Rₓ ──  цепь`
+                    visualHint: `R₁ + R₂ + Rₓ = Rₒбщ`
                 };
             } 
             else if (type === 1) {
-                // Параллельная цепь: 1/R_total = 1/R1 + 1/R_missing  =>  R_missing = 1 / (1/R_total - 1/R1)
-                // Чтобы ответ был целым, подбираем значения аккуратно
                 let R1 = randInt(baseMin, baseMax);
-                let R_total = randInt(baseMin + 5, baseMax + 30);
-                // Из формулы R_missing = (R1 * R_total) / (R1 - R_total) при условии R1 > R_total
-                // Нужно чтобы получилось положительное целое
+                let R_total = randInt(baseMin + 5, baseMax + 35);
                 let R_missing = -1;
                 let attempts = 0;
-                while(attempts < 30) {
+                while(attempts < 35) {
                     if(R1 > R_total) {
                         let num = R1 * R_total;
                         let den = R1 - R_total;
                         if(num % den === 0) {
                             R_missing = num / den;
-                            if(R_missing > 5 && R_missing < 300) break;
+                            if(R_missing > 4 && R_missing < 350) break;
                         }
                     }
-                    // перебираем R_total
-                    R_total = randInt(baseMin + 5, baseMax + 40);
+                    R_total = randInt(baseMin + 4, baseMax + 40);
                     R1 = randInt(baseMin, baseMax);
                     attempts++;
                 }
                 if(R_missing === -1 || R_missing <= 0) {
-                    // fallback: генерация последовательной задачи
                     return generateProblem();
                 }
                 return {
                     type: 'parallel',
-                    text: `1/Rₒбщ = 1/R₁ + 1/Rₓ   (параллельно)`,
+                    text: `⚡ Параллельное соединение`,
                     equation: `R₁ = ${R1} Ω,  Rₒбщ = ${R_total} Ω`,
-                    question: `Найди сопротивление Rₓ (в омах) для параллельного соединения.`,
+                    question: `Вычисли Rₓ (Ω) для параллельной цепи`,
                     correctAnswer: R_missing,
-                    visualHint: `R₁ ║ Rₓ  (параллельно)`
+                    visualHint: `1/Rₒбщ = 1/R₁ + 1/Rₓ`
                 };
             }
-            else { // закон Ома
-                let voltage = randInt(12, 180);   // напряжение в вольтах
-                let current = randInt(1, 12);     // ток в амперах (целый)
+            else {
+                let voltage = randInt(15, 200);
+                let current = randInt(1, 14);
                 let resistance = voltage / current;
-                // убедимся что сопротивление целое
                 if(voltage % current !== 0) {
-                    // немного подкорректируем
                     voltage = voltage - (voltage % current);
-                    if(voltage < current) voltage = current * randInt(2, 12);
+                    if(voltage < current) voltage = current * randInt(2, 14);
                     resistance = voltage / current;
                 }
                 return {
                     type: 'ohm',
-                    text: `Закон Ома: U = I * R`,
+                    text: `📐 Закон Ома`,
                     equation: `U = ${voltage} В,  I = ${current} А`,
-                    question: `Чему равно сопротивление R (в омах)?`,
+                    question: `Чему равно сопротивление R (Ω)?`,
                     correctAnswer: resistance,
                     visualHint: `R = U / I`
                 };
             }
         }
         
-        // Генерация вариантов ответов (3 дистрактора + правильный)
         function generateOptions(correct) {
             let opts = new Set();
             opts.add(correct);
-            let minRange = Math.max(2, Math.floor(correct * 0.4));
-            let maxRange = correct + Math.max(10, Math.floor(correct * 0.8));
-            if (level > 3) maxRange = correct + Math.floor(correct * 1.2);
-            
+            let rangeLow = Math.max(2, Math.floor(correct * 0.45));
+            let rangeHigh = correct + Math.max(8, Math.floor(correct * 0.8));
+            if (level > 4) rangeHigh = correct + Math.floor(correct * 1.1);
             while(opts.size < 4) {
-                let offset = randInt(-Math.floor(correct*0.7), Math.floor(correct*0.7));
+                let offset = randInt(-Math.floor(correct*0.6), Math.floor(correct*0.6));
                 let variant = correct + offset;
-                if(variant < 1) variant = correct + randInt(2, 8);
-                if(variant > 500) variant = correct - randInt(2, 15);
+                if(variant < 1) variant = correct + randInt(2, 12);
+                if(variant > 550) variant = correct - randInt(3, 20);
                 if(variant > 0) opts.add(variant);
-                // если всё плохо просто добавить случайное
                 if(opts.size < 3) {
-                    let randomAlt = randInt(minRange, maxRange);
+                    let randomAlt = randInt(rangeLow, rangeHigh);
                     if(randomAlt !== correct) opts.add(randomAlt);
                 }
             }
-            // преобразуем в массив и перемешаем
             let optsArray = Array.from(opts);
             for (let i = optsArray.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -296,19 +337,16 @@
             return optsArray;
         }
         
-        // Новая задача (сброс ожидания)
         function loadNewProblem() {
             if(nextTimer) clearTimeout(nextTimer);
             waitForNext = false;
             selectedOptionIndex = -1;
             currentProblem = generateProblem();
             options = generateOptions(currentProblem.correctAnswer);
-            // Обновить сообщение с подсказкой
-            messageDiv.innerHTML = `🔌 ${currentProblem.text} | ${currentProblem.equation}<br>❓ ${currentProblem.question}`;
-            drawCircuit(); // перерисовать схему и кнопки
+            messageDiv.innerHTML = `🔌 ${currentProblem.text} &nbsp;| ${currentProblem.equation}<br>❓ ${currentProblem.question}`;
+            drawCircuit();
         }
         
-        // Обработка ответа пользователя (индекс выбранной опции)
         function handleAnswer(selectedIdx) {
             if(waitForNext) return;
             if(!currentProblem) return;
@@ -316,50 +354,42 @@
             const isCorrect = (selectedValue === currentProblem.correctAnswer);
             
             if(isCorrect) {
-                // начисление очков: базовое 10 * уровень
                 let points = 10 * level;
                 score += points;
                 scoreSpan.innerText = score;
-                messageDiv.innerHTML = `✅ ВЕРНО! +${points} очков! Отличные математические расчёты! ✅`;
-                // Если все правильно, возможно переход уровня после нескольких задач
-                // Проверка повышения уровня: каждые 5 правильных ответов (переход уровня)
-                if(score >= level * 55 && level < 15) { // примерный порог повышения
+                messageDiv.innerHTML = `✅ ИДЕАЛЬНО! +${points} очков! R = ${currentProblem.correctAnswer} Ω ✅<br>${currentProblem.visualHint}`;
+                drawCorrectFlash();
+                // повышение уровня
+                if(score >= level * 55 && level < 20) {
                     level++;
                     levelSpan.innerText = level;
-                    messageDiv.innerHTML += `<br>🎉 ПОВЫШЕНИЕ УРОВНЯ ${level}! Схемы сложнее! 🎉`;
+                    messageDiv.innerHTML += `<br>🎉 НОВЫЙ УРОВЕНЬ ${level}! Схема усложняется 🎉`;
                 }
-                drawCorrectFlash();
             } else {
                 lives--;
                 livesSpan.innerText = lives;
-                messageDiv.innerHTML = `❌ ОШИБКА! Правильный ответ: ${currentProblem.correctAnswer} Ω. ${currentProblem.visualHint} ❌`;
+                messageDiv.innerHTML = `❌ ОШИБКА! Правильный ответ: ${currentProblem.correctAnswer} Ω.<br>${currentProblem.visualHint} ❌`;
                 drawWrongFlash();
                 if(lives <= 0) {
                     gameOver();
                     return;
                 }
             }
-            // Блокируем и через секунду загружаем новую задачу
             waitForNext = true;
             nextTimer = setTimeout(() => {
-                if(lives > 0) {
-                    loadNewProblem();
-                } else {
-                    // если игра окончена, но перезагрузка только через restart
-                }
+                if(lives > 0) loadNewProblem();
+                else if(lives <=0) { /* игра окончена */ }
                 nextTimer = null;
             }, 1400);
-            drawCircuit(); // перерисовка для disabled визуала
+            drawCircuit();
         }
         
-        // Game over
         function gameOver() {
             waitForNext = true;
-            messageDiv.innerHTML = `💀 ИГРА ОКОНЧЕНА 💀<br>Ваши очки: ${score}. Перезапустите игру, чтобы починить схему!`;
+            messageDiv.innerHTML = `💀 КОРОТКОЕ ЗАМЫКАНИЕ! ИГРА ЗАВЕРШЕНА 💀<br>Ваши очки: ${score}. Перезапустите схему!`;
             drawGameOverScreen();
         }
         
-        // Перезапуск игры
         function restartGame() {
             if(nextTimer) clearTimeout(nextTimer);
             score = 0;
@@ -373,196 +403,161 @@
             loadNewProblem();
         }
         
-        // ------------------------------------------------------------------
-        // Отрисовка всей графики: цепь, резисторы, лампочка, кнопки-варианты
+        // ---------- ОТРИСОВКА (профессиональная, яркая) ----------
         function drawCircuit() {
-            ctx.clearRect(0, 0, width, height);
-            // фон "плата"
-            ctx.fillStyle = "#1e2e24";
-            ctx.fillRect(0, 0, width, height);
-            ctx.strokeStyle = "#86bf8c";
-            ctx.lineWidth = 3;
-            // рисуем дорожки и элементы
-            drawPCBBackground();
-            
-            // центральный элемент - "лампочка/светодиод" на правой стороне
-            drawLightbulb();
-            
-            // Рисуем "неизвестный резистор" с символом вопроса или уравнением
-            drawUnknownResistor();
-            
-            // Рисуем дополнительный резистор для представления задачи
-            drawMathBadge();
-            
-            // Рисуем 4 кнопки (варианты ответов) внизу
-            drawOptionButtons();
-            
-            // Если lives <= 0 показываем мёртвую цепь
-            if(lives <= 0) {
-                ctx.font = "bold 36px 'Segoe UI'";
-                ctx.fillStyle = "#ff6666";
-                ctx.shadowBlur = 0;
-                ctx.fillText("☠️ ЦЕПЬ ПЕРЕГРУЖЕНА ☠️", width/2-170, height-70);
-            }
-        }
-        
-        function drawPCBBackground() {
+            ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+            // стиль платы
+            ctx.fillStyle = "#1c2a20";
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             // линии цепи
             ctx.beginPath();
-            ctx.moveTo(50, 130);
-            ctx.lineTo(200, 130);
-            ctx.lineTo(200, 200);
-            ctx.lineTo(350, 200);
-            ctx.lineTo(350, 130);
-            ctx.lineTo(700, 130);
-            ctx.lineTo(700, 280);
-            ctx.lineTo(800, 280);
+            ctx.strokeStyle = "#71c286";
+            ctx.lineWidth = 3;
+            ctx.moveTo(70, 150);
+            ctx.lineTo(220, 150);
+            ctx.lineTo(220, 240);
+            ctx.lineTo(380, 240);
+            ctx.lineTo(380, 150);
+            ctx.lineTo(720, 150);
+            ctx.lineTo(720, 300);
+            ctx.lineTo(850, 300);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(800, 280);
-            ctx.lineTo(800, 360);
-            ctx.lineTo(50, 360);
-            ctx.lineTo(50, 130);
+            ctx.moveTo(850, 300);
+            ctx.lineTo(850, 400);
+            ctx.lineTo(70, 400);
+            ctx.lineTo(70, 150);
             ctx.stroke();
-            // добавление "резистора" R1
+            
+            // Резистор R1
             ctx.fillStyle = "#bc9a6c";
-            ctx.fillRect(250, 180, 70, 25);
-            ctx.fillStyle = "#f5deb3";
-            ctx.font = "bold 18px monospace";
-            ctx.fillText("R₁", 270, 200);
-            // резистор R2
-            ctx.fillRect(450, 115, 70, 25);
-            ctx.fillText("R₂", 470, 137);
-        }
-        
-        function drawLightbulb() {
-            // лампочка справа вверху
+            ctx.fillRect(270, 195, 80, 32);
+            ctx.fillStyle = "#fff0c0";
+            ctx.font = "bold 18px 'Courier New'";
+            ctx.fillText("R₁", 300, 218);
+            // Резистор R2
+            ctx.fillRect(480, 135, 80, 32);
+            ctx.fillText("R₂", 510, 158);
+            
+            // Лампочка
             ctx.beginPath();
-            ctx.arc(780, 100, 32, 0, 2*Math.PI);
-            ctx.fillStyle = "#ffee88";
+            ctx.arc(880, 100, 36, 0, 2*Math.PI);
+            ctx.fillStyle = "#ddbb55";
             ctx.fill();
-            ctx.fillStyle = "#ffcc44";
             ctx.beginPath();
-            ctx.arc(780, 100, 24, 0, 2*Math.PI);
+            ctx.arc(880, 100, 26, 0, 2*Math.PI);
+            ctx.fillStyle = (selectedOptionIndex !== -1 && !waitForNext && currentProblem && options[selectedOptionIndex] === currentProblem.correctAnswer) ? "#ffff99" : "#ffbb33";
             ctx.fill();
-            if(selectedOptionIndex !== -1 && !waitForNext && currentProblem && options[selectedOptionIndex] === currentProblem.correctAnswer){
-                ctx.fillStyle = "#ffffaa";
-                ctx.beginPath();
-                ctx.arc(780, 100, 18, 0, 2*Math.PI);
-                ctx.fill();
-                ctx.fillStyle = "orange";
-                ctx.font = "bold 20px monospace";
-                ctx.fillText("💡", 768, 112);
-            } else {
-                ctx.fillStyle = "#ccaa55";
-                ctx.beginPath();
-                ctx.arc(780, 100, 16, 0, 2*Math.PI);
-                ctx.fill();
-                ctx.fillStyle = "#665511";
-                ctx.font = "20px monospace";
-                ctx.fillText("⚡", 770, 112);
+            ctx.fillStyle = "#664411";
+            ctx.font = "26px monospace";
+            ctx.fillText("💡", 868, 115);
+            
+            // Rx неизвестный
+            ctx.fillStyle = "#3e6d41";
+            ctx.fillRect(600, 280, 100, 45);
+            ctx.fillStyle = "#f7e05e";
+            ctx.font = "bold 24px 'Courier New'";
+            ctx.fillText("Rₓ = ?", 618, 312);
+            
+            // Математическая информация
+            if(currentProblem) {
+                ctx.fillStyle = "#0f2a1acc";
+                ctx.fillRect(25, 450, 420, 85);
+                ctx.fillStyle = "#cbf5d1";
+                ctx.font = "bold 15px 'Segoe UI'";
+                ctx.fillText(currentProblem.equation, 35, 478);
+                ctx.font = "13px monospace";
+                ctx.fillStyle = "#ffecb3";
+                ctx.fillText(currentProblem.question, 35, 505);
+                if(currentProblem.visualHint) {
+                    ctx.font = "italic 12px monospace";
+                    ctx.fillStyle = "#bcdaa7";
+                    ctx.fillText(`→ ${currentProblem.visualHint}`, 35, 525);
+                }
             }
-        }
-        
-        function drawUnknownResistor() {
-            // рисуем область где находится Rx (неизвестный резистор)
-            ctx.fillStyle = "#4a6e4b";
-            ctx.shadowBlur = 0;
-            ctx.fillRect(560, 260, 90, 40);
-            ctx.fillStyle = "#ffd966";
-            ctx.font = "bold 22px 'Courier New'";
-            ctx.fillText("Rₓ = ?", 575, 290);
-            ctx.fillStyle = "#ffffffcc";
-            ctx.font = "14px monospace";
-            ctx.fillText("вычисли", 580, 315);
-        }
-        
-        function drawMathBadge() {
-            if(!currentProblem) return;
-            ctx.fillStyle = "#09200ccc";
-            ctx.fillRect(30, 400, 340, 80);
-            ctx.fillStyle = "#b8f2c2";
-            ctx.font = "bold 14px 'Segoe UI'";
-            ctx.fillText(currentProblem.equation, 40, 425);
-            ctx.font = "12px monospace";
-            ctx.fillStyle = "#ffe0a3";
-            ctx.fillText(currentProblem.question.slice(0, 38), 40, 450);
-        }
-        
-        function drawOptionButtons() {
-            if(!options.length) return;
-            const btnW = 180;
-            const btnH = 52;
-            const startX = (width - (btnW * 2 + 40)) / 2;
-            const yPos = height - 85;
-            for(let i=0; i<options.length; i++) {
-                let col = i % 2;
-                let row = Math.floor(i/2);
-                let x = startX + col * (btnW + 25);
-                let y = yPos + row * (btnH + 15);
-                // стиль кнопки
+            
+            // Кнопки вариантов ответа
+            drawDynamicButtons();
+            
+            if(lives <= 0) {
+                ctx.font = "bold 32px 'Segoe UI'";
+                ctx.fillStyle = "#ff7766";
                 ctx.shadowBlur = 0;
-                if(waitForNext) {
-                    ctx.fillStyle = "#5a5a55";
-                } else if(selectedOptionIndex === i) {
-                    ctx.fillStyle = "#cca35e";
-                } else {
-                    ctx.fillStyle = "#2c4730";
-                }
-                ctx.fillRect(x, y, btnW, btnH);
-                ctx.strokeStyle = "#b9d48b";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, btnW, btnH);
-                ctx.fillStyle = "#fafac0";
-                ctx.font = "bold 20px 'Courier New'";
-                ctx.fillText(`${options[i]} Ω`, x+btnW/2-25, y+btnH/2+8);
-                // сохраняем область клика (для обработчика)
-                if(!waitForNext && lives>0){
-                    // интерактивность в canvas
-                }
+                ctx.fillText("⚡ ЦЕПЬ ПОВРЕЖДЕНА ⚡", CANVAS_W/2-210, CANVAS_H-60);
             }
-            // сохраним зоны для кликов в глобальном массиве для обработчика
+        }
+        
+        function drawDynamicButtons() {
+            if(!options.length) return;
+            const btnW = 190;
+            const btnH = 58;
+            const startX = (CANVAS_W - (btnW * 2 + 40)) / 2;
+            const yPos = CANVAS_H - 100;
             window.buttonAreas = [];
             for(let i=0; i<options.length; i++) {
                 let col = i % 2;
                 let row = Math.floor(i/2);
-                let x = startX + col * (btnW + 25);
-                let y = yPos + row * (btnH + 15);
+                let x = startX + col * (btnW + 30);
+                let y = yPos + row * (btnH + 18);
+                if(waitForNext) {
+                    ctx.fillStyle = "#5a6255";
+                } else if(selectedOptionIndex === i) {
+                    ctx.fillStyle = "#dba451";
+                } else {
+                    ctx.fillStyle = "#2f5a34";
+                }
+                ctx.fillRect(x, y, btnW, btnH);
+                ctx.strokeStyle = "#d4f1b0";
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(x, y, btnW, btnH);
+                ctx.fillStyle = "#ffffdd";
+                ctx.font = "bold 22px 'Courier New'";
+                ctx.fillText(`${options[i]} Ω`, x+btnW/2-28, y+btnH/2+9);
                 window.buttonAreas.push({x, y, w: btnW, h: btnH, idx: i});
             }
         }
         
         function drawCorrectFlash() {
-            ctx.fillStyle = "#44ff88aa";
-            ctx.fillRect(0, 0, width, height);
-            setTimeout(()=>drawCircuit(), 120);
+            ctx.fillStyle = "#55ff88aa";
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            setTimeout(()=>drawCircuit(), 130);
         }
         
         function drawWrongFlash() {
-            ctx.fillStyle = "#ff4444aa";
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = "#ff5555aa";
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             setTimeout(()=>drawCircuit(), 150);
         }
         
         function drawGameOverScreen() {
             drawCircuit();
-            ctx.font = "bold 40px monospace";
-            ctx.fillStyle = "#dd3333";
-            ctx.fillText("GAME OVER", width/2-120, height/2);
+            ctx.font = "bold 34px monospace";
+            ctx.fillStyle = "#ff4444";
+            ctx.fillText("GAME OVER", CANVAS_W/2-115, CANVAS_H/2);
         }
         
-        // Обработка кликов на canvas
-        function handleCanvasClick(e) {
+        // Обработка кликов с масштабированием (для сенсоров и мыши)
+        function handleCanvasInteraction(e) {
             if(waitForNext) return;
             if(lives <= 0) return;
+            let clientX, clientY;
+            if(e.touches) {
+                // touch event
+                e.preventDefault();
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            let mouseX = (e.clientX - rect.left) * scaleX;
-            let mouseY = (e.clientY - rect.top) * scaleY;
+            const scaleX = CANVAS_W / rect.width;
+            const scaleY = CANVAS_H / rect.height;
+            let canvasX = (clientX - rect.left) * scaleX;
+            let canvasY = (clientY - rect.top) * scaleY;
             if(window.buttonAreas) {
                 for(let area of window.buttonAreas) {
-                    if(mouseX >= area.x && mouseX <= area.x+area.w && mouseY >= area.y && mouseY <= area.y+area.h) {
+                    if(canvasX >= area.x && canvasX <= area.x+area.w && canvasY >= area.y && canvasY <= area.y+area.h) {
                         selectedOptionIndex = area.idx;
                         handleAnswer(area.idx);
                         drawCircuit();
@@ -572,14 +567,25 @@
             }
         }
         
-        canvas.addEventListener('click', handleCanvasClick);
-        document.getElementById('restartGame').addEventListener('click', () => {
+        // Добавляем обработчики и для тач, и для мыши
+        canvas.addEventListener('click', (e) => {
+            handleCanvasInteraction(e);
+        });
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleCanvasInteraction(e);
+        }, {passive: false});
+        
+        document.getElementById('restartGame').addEventListener('click', () => restartGame());
+        document.getElementById('restartGame').addEventListener('touchstart', (e) => {
+            e.preventDefault();
             restartGame();
         });
         
-        // Инициализация
+        // Старт игры
         function init() {
             restartGame();
+            // дополнительная адаптация: если телефон, можно чуть увеличить canvas шрифты через JS не обязательно
         }
         init();
     })();
