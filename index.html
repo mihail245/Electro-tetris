@@ -320,7 +320,7 @@
             <button id="addPointsBtn">🔋 +50 МВт</button>
             <div class="admin-status" id="adminStatusMsg"></div>
         </div>
-        <div class="admin-status" id="adminLoginMsg">Введите UID, который вы выбрали (из Firebase Auth)</div>
+        <div class="admin-status" id="adminLoginMsg">Введите Firebase UID для входа в админ-панель</div>
     </div>
 </div>
 
@@ -373,9 +373,17 @@
     let isAdminMode = false;
     let adminAuthorizedUid = null;
     
-    // ========== ВАШ UID АДМИНИСТРАТОРА (уже добавлен в код) ==========
-    const ALLOWED_ADMIN_UID = "zUm98N8mzoN5oq4aeCZo6476lWJ2";
+    // ========== СПИСОК АДМИНИСТРАТОРОВ (ДОБАВЛЕН ВТОРОЙ UID) ==========
+    const ALLOWED_ADMIN_UIDS = [
+        "zUm98N8mzoN5oq4aeCZo6476lWJ2",  // Админ 1
+        "8QTK0kWzJwQjY2rEgAQFxQcJFdE2"   // Админ 2 (новый)
+    ];
     // =================================================================
+    
+    // Функция проверки, является ли UID администратором
+    function isAllowedAdmin(uid) {
+        return ALLOWED_ADMIN_UIDS.includes(uid);
+    }
     
     // ЖЕСТ: 5 тапов по счёту для быстрого открытия админки
     let tapCount = 0;
@@ -425,7 +433,7 @@
         adminModal.style.display = 'flex';
         adminUidInput.value = '';
         adminPanelActions.style.display = 'none';
-        adminLoginMsg.innerHTML = 'Введите Firebase UID для входа в админ-панель';
+        adminLoginMsg.innerHTML = 'Введите ваш Firebase UID для входа в админ-панель';
         adminLoginMsg.style.color = '#ffaa66';
         adminStatusMsg.innerHTML = '';
     }
@@ -440,7 +448,7 @@
         const user = auth.currentUser;
         if(user) {
             userIdSpan.innerText = user.uid.substring(0, 12) + "...";
-            if(user.uid === ALLOWED_ADMIN_UID) {
+            if(isAllowedAdmin(user.uid)) {
                 isAdminMode = true;
                 adminAuthorizedUid = user.uid;
                 messageDiv.innerHTML = `🔐 РЕЖИМ АДМИНИСТРАТОРА АКТИВЕН. Добро пожаловать, повелитель энергии! ⚡`;
@@ -486,8 +494,8 @@
             return;
         }
         
-        // Сравниваем с разрешённым UID
-        if(currentUser.uid === enteredUid && currentUser.uid === ALLOWED_ADMIN_UID) {
+        // Сравниваем с разрешёнными UID
+        if(currentUser.uid === enteredUid && isAllowedAdmin(currentUser.uid)) {
             isAdminMode = true;
             adminAuthorizedUid = currentUser.uid;
             adminLoginMsg.innerHTML = '✅ ДОСТУП РАЗРЕШЁН! Админ-панель активна.';
