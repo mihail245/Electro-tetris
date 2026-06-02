@@ -326,7 +326,6 @@
 
 <script>
     // ======================== НАСТРОЙКА FIREBASE ========================
-    // Ваш конфиг (уже предоставлен)
     const firebaseConfig = {
         apiKey: "AIzaSyCGrfi8JM8UseO0m3qQuQc_ZuGnxXxXYgE",
         authDomain: "igra-82a42.firebaseapp.com",
@@ -371,10 +370,14 @@
     const userIdSpan = document.getElementById('userIdDisplay');
     
     // Админские переменные
-    let isAdminMode = false;          // флаг, что текущий пользователь - админ (по UID)
-    let adminAuthorizedUid = null;    // тут будем хранить разрешённый uid, который вы выберете
-
-    // ЖЕСТ: 5 тапов по счёту для быстрого открытия админки (оставлен для удобства)
+    let isAdminMode = false;
+    let adminAuthorizedUid = null;
+    
+    // ========== ВАШ UID АДМИНИСТРАТОРА (уже добавлен в код) ==========
+    const ALLOWED_ADMIN_UID = "zUm98N8mzoN5oq4aeCZo6476lWJ2";
+    // =================================================================
+    
+    // ЖЕСТ: 5 тапов по счёту для быстрого открытия админки
     let tapCount = 0;
     let tapTimer = null;
     const scoreBoxElement = document.querySelector('.score-box');
@@ -421,9 +424,8 @@
     function openAdminModal() {
         adminModal.style.display = 'flex';
         adminUidInput.value = '';
-        // Скрываем панель действий, пока не авторизовались
         adminPanelActions.style.display = 'none';
-        adminLoginMsg.innerHTML = 'Введите Firebase UID, который вы выбрали для админа.';
+        adminLoginMsg.innerHTML = 'Введите Firebase UID для входа в админ-панель';
         adminLoginMsg.style.color = '#ffaa66';
         adminStatusMsg.innerHTML = '';
     }
@@ -433,13 +435,7 @@
         adminUidInput.value = '';
     }
     
-    // Функция проверки: соответствует ли текущий залогиненный пользователь UID-админу
-    // Вы вызываете её после входа в Firebase (либо анонимно, либо через почту/пароль)
-    // Для удобства сделаем поддержку анонимной авторизации, а админский UID вы зададите через конфиг.
-    // ЗАДАЙТЕ ЗДЕСЬ ВАШ АДМИНСКИЙ UID (тот, который вы хотите сделать администратором)
-    const ALLOWED_ADMIN_UID = "ВАШ_UID_АДМИНА";   // <------- ⚠️ ВСТАВЬТЕ СЮДА ВАШ ID ПОЛЬЗОВАТЕЛЯ ИЗ FIREBASE!
-    
-    // Функция обновления статуса админа на основе текущего пользователя Firebase
+    // Обновление статуса админа на основе текущего пользователя Firebase
     function updateAdminStatus() {
         const user = auth.currentUser;
         if(user) {
@@ -447,12 +443,10 @@
             if(user.uid === ALLOWED_ADMIN_UID) {
                 isAdminMode = true;
                 adminAuthorizedUid = user.uid;
-                messageDiv.innerHTML = `🔐 РЕЖИМ АДМИНИСТРАТОРА АКТИВЕН. Вы имеете доступ к админ-панели.`;
-                // Дополнительно можно показать в интерфейсе
+                messageDiv.innerHTML = `🔐 РЕЖИМ АДМИНИСТРАТОРА АКТИВЕН. Добро пожаловать, повелитель энергии! ⚡`;
             } else {
                 isAdminMode = false;
                 adminAuthorizedUid = null;
-                // Не пишем каждый раз, чтобы не засорять
             }
         } else {
             userIdSpan.innerText = "Не авторизован";
@@ -461,8 +455,7 @@
         }
     }
     
-    // Авторизация через анонимный вход (чтобы у каждого игрока был свой UID, а вы потом могли выбрать нужный)
-    // Это позволит вам получить UID через консоль Firebase и указать его выше.
+    // Анонимная авторизация
     auth.signInAnonymously().catch(error => {
         console.error("Ошибка анонимного входа:", error);
         userIdSpan.innerText = "Ошибка входа";
@@ -478,7 +471,7 @@
         }
     });
     
-    // Логика входа в админку через модалку: сверяем введённый UID с ALLOWED_ADMIN_UID
+    // Логика входа в админку через модалку
     adminAuthBtn.addEventListener('click', () => {
         const enteredUid = adminUidInput.value.trim();
         if(enteredUid === "") {
@@ -488,20 +481,21 @@
         }
         const currentUser = auth.currentUser;
         if(!currentUser) {
-            adminLoginMsg.innerHTML = '❌ Сначала дождитесь авторизации Firebase (анонимный вход). Обновите страницу если нужно.';
+            adminLoginMsg.innerHTML = '❌ Дождитесь авторизации Firebase. Обновите страницу.';
             adminLoginMsg.style.color = '#ff8866';
             return;
         }
-        // Сравниваем текущий UID залогиненного пользователя с тем, что ввёл пользователь в модалке
+        
+        // Сравниваем с разрешённым UID
         if(currentUser.uid === enteredUid && currentUser.uid === ALLOWED_ADMIN_UID) {
             isAdminMode = true;
             adminAuthorizedUid = currentUser.uid;
-            adminLoginMsg.innerHTML = '✅ АДМИН ДОСТУП ПОДТВЕРЖДЁН! Панель управления открыта.';
+            adminLoginMsg.innerHTML = '✅ ДОСТУП РАЗРЕШЁН! Админ-панель активна.';
             adminLoginMsg.style.color = '#8bc34a';
             adminPanelActions.style.display = 'block';
-            adminStatusMsg.innerHTML = 'Админ-функции активны.';
+            adminStatusMsg.innerHTML = 'Добро пожаловать, администратор энергосистемы! ⚡';
         } else {
-            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ UID или этот пользователь не является администратором! Укажите правильный UID в конфиге (ALLOWED_ADMIN_UID).';
+            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ UID! Доступ запрещён.';
             adminLoginMsg.style.color = '#ff8866';
             adminPanelActions.style.display = 'none';
             isAdminMode = false;
@@ -513,16 +507,15 @@
         if(e.target === adminModal) closeAdminModal();
     });
     
-    // Кнопка "Админ" в интерфейсе открывает модалку
     openAdminBtn.addEventListener('click', () => {
         openAdminModal();
     });
     
-    // -------------------- АДМИН-КОМАНДЫ (доступны только если isAdminMode = true) --------------------
+    // -------------------- АДМИН-КОМАНДЫ --------------------
     function adminGiveCorrectAnswer() {
         if(!isAdminMode) { adminStatusMsg.innerHTML = '⛔ Нет прав администратора.'; return; }
         if(!gameActive || victoryFlag) {
-            adminStatusMsg.innerHTML = '❌ Игра уже завершена (победа/поражение).';
+            adminStatusMsg.innerHTML = '❌ Игра завершена (победа/поражение).';
             return;
         }
         if(waitForAnswer) {
@@ -531,7 +524,7 @@
         }
         if(currentProblem) {
             handleAnswer(currentProblem.correctAnswer);
-            adminStatusMsg.innerHTML = '✅ Админ: выдан правильный ответ!';
+            adminStatusMsg.innerHTML = '✅ Выдан правильный ответ!';
         } else {
             adminStatusMsg.innerHTML = '⚠️ Нет активной задачи';
         }
@@ -564,7 +557,7 @@
         updateUI();
         victoryGame();
         drawPowerSystem();
-        adminStatusMsg.innerHTML = '🌟 АДМИН: МГНОВЕННАЯ ПОБЕДА! 🌟';
+        adminStatusMsg.innerHTML = '🌟 МГНОВЕННАЯ ПОБЕДА! Энергомост построен! 🌟';
     }
     
     function adminAddLife() {
@@ -575,7 +568,7 @@
         }
         stability = Math.min(5, stability + 1);
         livesSpan.innerText = stability;
-        messageDiv.innerHTML = `❤️ Админ добавил стабильность! +1 ❤️`;
+        messageDiv.innerHTML = `❤️ Администратор добавил стабильность! +1 ❤️`;
         drawPowerSystem();
         adminStatusMsg.innerHTML = '❤️ +1 стабильность добавлена';
         setTimeout(()=>{ if(gameActive && !victoryFlag && !waitForAnswer) drawPowerSystem(); },200);
@@ -589,23 +582,25 @@
         }
         score += 50;
         scoreSpan.innerText = score;
-        messageDiv.innerHTML = `🔋 Админ начислил +50 МВт! 🔋`;
+        messageDiv.innerHTML = `🔋 Администратор начислил +50 МВт! 🔋`;
         drawPowerSystem();
-        adminStatusMsg.innerHTML = '🔋 +50 мегаватт!';
+        adminStatusMsg.innerHTML = '🔋 +50 мегаватт добавлено!';
     }
     
-    // Привязываем кнопки админ-панели (они всегда существуют, но проверяют isAdminMode внутри функций)
+    // Привязываем админ-кнопки
     document.getElementById('giveCorrectAnswerBtn').addEventListener('click', adminGiveCorrectAnswer);
     document.getElementById('instaWinsBtn').addEventListener('click', adminInstantWin);
     document.getElementById('addLivesBtn').addEventListener('click', adminAddLife);
     document.getElementById('addPointsBtn').addEventListener('click', adminAddPoints);
     
-    // -------------------- ИГРОВАЯ МЕХАНИКА (без изменений, но добавлен вызов updateUI) --------------------
+    // -------------------- ИГРОВАЯ МЕХАНИКА --------------------
     function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    
     function updateUI() {
         bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
         difficultySpan.innerText = `${Math.floor(difficulty)}%`;
     }
+    
     function getDifficultyMultiplier() { return 1.0 + (difficulty / 100) * 1.8; }
     
     function generateCoolProblem() {
@@ -614,19 +609,22 @@
         if (difficulty < 25) type = randInt(0, 2);
         else if (difficulty < 60) type = randInt(0, 3);
         else { let r = randInt(0,100); if(r<35) type=0; else if(r<60) type=1; else if(r<80) type=2; else type=3; }
+        
         if(type === 0) {
             let voltage = randInt(12, Math.min(150, 40 + Math.floor(25 * mult)));
             let current = randInt(1, Math.min(30, 8 + Math.floor(8 * mult)));
             let power = voltage * current;
             return { title: "📡 АКТИВНАЯ МОЩНОСТЬ", equation: `U = ${voltage} В,  I = ${current} А`, question: `Какова мощность P (в ваттах)?`, correctAnswer: power, hint: "P = U × I" };
-        } else if(type === 1) {
+        }
+        else if(type === 1) {
             let voltage = randInt(18, Math.min(200, 60 + Math.floor(45 * mult)));
             let current = randInt(2, Math.min(35, 8 + Math.floor(10 * mult)));
             let resistance = Math.floor(voltage / current);
             if(resistance < 1) resistance = 2;
             voltage = resistance * current;
             return { title: "⚡ ЗАКОН ОМА", equation: `U = ${voltage} В,  I = ${current} А`, question: `Найдите сопротивление R (в омах)`, correctAnswer: resistance, hint: "R = U / I" };
-        } else if(type === 2) {
+        }
+        else if(type === 2) {
             let useParallel = (difficulty > 50) ? (randInt(0,100) < 70) : (randInt(0,1) === 1);
             if(!useParallel) {
                 let R_known = randInt(15, Math.min(120, 40 + Math.floor(35 * mult)));
@@ -651,11 +649,12 @@
                 if(R2 === -1 || R2 <= 0) { R2 = randInt(15, Math.min(120, 40 + Math.floor(35 * mult))); R_total = Math.floor((R1 * R2) / (R1 + R2)); }
                 return { title: "🔀 ПАРАЛЛЕЛЬНАЯ ЦЕПЬ", equation: `R₁ = ${R1} Ω,  R_общ = ${R_total} Ω`, question: `Найдите R₂ (в омах)`, correctAnswer: R2, hint: "1/R₂ = 1/R_общ - 1/R₁" };
             }
-        } else {
+        }
+        else {
             let efficiency = randInt(65, 98);
             let inputPower = randInt(100, Math.min(800, 200 + Math.floor(250 * mult)));
             let outputPower = Math.floor(inputPower * efficiency / 100);
-            return { title: "♻️ КПД", equation: `КПД = ${efficiency}%,  P_вх = ${inputPower} Вт`, question: `Чему равна полезная мощность P_вых (Вт)?`, correctAnswer: outputPower, hint: "P_вых = P_вх × КПД / 100" };
+            return { title: "♻️ КОЭФФИЦИЕНТ ПОЛЕЗНОГО ДЕЙСТВИЯ", equation: `КПД = ${efficiency}%,  P_вх = ${inputPower} Вт`, question: `Чему равна полезная мощность P_вых (Вт)?`, correctAnswer: outputPower, hint: "P_вых = P_вх × КПД / 100" };
         }
     }
     
@@ -676,8 +675,8 @@
         return arr;
     }
     
-    function victoryGame() { if(victoryFlag) return; victoryFlag=true; gameActive=false; waitForAnswer=true; if(nextTimer) clearTimeout(nextTimer); messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ✨🏆<br>Сложность: ${Math.floor(difficulty)}% | Счёт: ${score} МВт.`; drawVictoryScene(); }
-    function gameDefeat() { if(victoryFlag) return; gameActive=false; waitForAnswer=true; if(nextTimer) clearTimeout(nextTimer); messageDiv.innerHTML = `💥 КОЛЛАПС! Рухнул на ${correctCount}/15. Перезапустите.`; drawGameOverVisual(); }
+    function victoryGame() { if(victoryFlag) return; victoryFlag=true; gameActive=false; waitForAnswer=true; if(nextTimer) clearTimeout(nextTimer); messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД СИЯЕТ! ✨🏆<br>Сложность покорена: ${Math.floor(difficulty)}% | Счёт: ${score} МВт.`; drawVictoryScene(); }
+    function gameDefeat() { if(victoryFlag) return; gameActive=false; waitForAnswer=true; if(nextTimer) clearTimeout(nextTimer); messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост рухнул... Вы дошли до ${correctCount}/15. Перезапустите. 💥`; drawGameOverVisual(); }
     
     function handleAnswer(selectedVal) {
         if(!gameActive || waitForAnswer || victoryFlag) return;
@@ -695,7 +694,7 @@
         } else {
             stability--;
             livesSpan.innerText = stability;
-            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌`;
+            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌ Сложность не растёт.`;
             drawWrongFlashEffect();
             if(stability <= 0) { gameDefeat(); drawPowerSystem(); return; }
         }
@@ -744,7 +743,7 @@
         drawPowerSystem();
     }
     
-    // Визуализация (базовая)
+    // Визуализация
     function drawPowerSystem() { 
         ctx.clearRect(0,0,CANVAS_W,CANVAS_H); ctx.fillStyle="#121f1c"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
         ctx.fillStyle="#3a6b55"; ctx.beginPath(); ctx.ellipse(100,200,50,70,0,0,Math.PI*2); ctx.fill();
@@ -766,6 +765,7 @@
         if(victoryFlag){ ctx.fillStyle="#ffdd88cc"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); ctx.fillStyle="#2c5a2e"; ctx.font="bold 28px monospace"; ctx.fillText("ЭНЕРГОМОСТ ПОСТРОЕН!",CANVAS_W/2-170,CANVAS_H/2-20); }
         if(stability<=0 && !victoryFlag){ ctx.fillStyle="#ff6666aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); ctx.fillStyle="white"; ctx.font="bold 26px monospace"; ctx.fillText("СИСТЕМА ОТКЛЮЧЕНА",CANVAS_W/2-150,CANVAS_H/2); }
     }
+    
     function drawCorrectFlashEffect(){ ctx.fillStyle="#66ff99aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); setTimeout(()=>drawPowerSystem(),150); }
     function drawWrongFlashEffect(){ ctx.fillStyle="#ff6666aa"; ctx.fillRect(0,0,CANVAS_W,CANVAS_H); setTimeout(()=>drawPowerSystem(),180); }
     function drawGameOverVisual(){ drawPowerSystem(); }
