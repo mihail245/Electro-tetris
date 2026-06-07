@@ -43,6 +43,12 @@
             transition: all 0.2s;
         }
 
+        /* Стиль для администратора */
+        .game-container.admin-mode {
+            border-bottom: 6px solid #ffaa44;
+            box-shadow: 0 0 20px rgba(255,170,68,0.3);
+        }
+
         .game-layout {
             display: flex;
             flex-wrap: wrap;
@@ -365,18 +371,19 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Уведомление для админа в углу */
+        /* Бейдж администратора */
         .admin-badge {
             position: fixed;
             bottom: 10px;
             right: 10px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             color: #ffaa44;
-            padding: 5px 10px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-family: monospace;
             z-index: 9999;
+            border-left: 3px solid #ffaa44;
             pointer-events: none;
         }
 
@@ -424,7 +431,7 @@
 </head>
 <body>
 <div class="game-wrapper">
-    <div class="game-container">
+    <div class="game-container" id="gameContainer">
         <div class="game-layout">
             <div class="canvas-area">
                 <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
@@ -515,122 +522,142 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // ======================== АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ АДМИНА ПО ТЕЛЕФОНУ ========================
+    // ======================== СИСТЕМА ОПРЕДЕЛЕНИЯ АДМИНА (ПЕРВЫЙ ЗАХОД) ========================
     let isAdminMode = false;
     let currentAdminName = "";
     let currentAdminAccess = "";
+    let currentUserId = null;
     
-    // Функция проверки, является ли устройство Poco X7 Pro
-    function isPocoX7Pro() {
-        const userAgent = navigator.userAgent.toLowerCase();
+    // Функция для получения или создания ID пользователя
+    async function getOrCreateUserId() {
+        const user = auth.currentUser;
+        if (!user) return null;
         
-        // Признаки телефона Poco X7 Pro
-        const pocoSignatures = [
-            "poco x7 pro",
-            "poco x7",
-            "2412DPCOAG",  // Код модели Poco X3 Pro (пример, нужно узнать ваш)
-            "poco"
-        ];
+        // Сначала проверяем, есть ли уже этот пользователь в базе
+        const snapshot = await db.ref('users/' + user.uid).once('value');
+        const userData = snapshot.val();
         
-        for (let signature of pocoSignatures) {
-            if (userAgent.includes(signature)) {
-                return true;
-            }
+        if (userData) {
+            // Пользователь уже есть в базе
+            currentUserId = userData.id;
+            return userData.id;
+        } else {
+            // Новый пользователь - назначаем следующий ID
+            const counterSnapshot = await db.ref('counters/userId').once('value');
+            let nextId = counterSnapshot.val() || 0;
+            nextId++;
+            
+            // Сохраняем пользователя
+            await db.ref('users/' + user.uid).set({
+                id: nextId,
+                firstSeen: Date.now(),
+                lastSeen: Date.now(),
+                userAgent: navigator.userAgent
+            });
+            
+            // Обновляем счётчик
+            await db.ref('counters/userId').set(nextId);
+            
+            currentUserId = nextId;
+            return nextId;
         }
-        
-        // Дополнительная проверка по разрешению экрана (узнайте разрешение вашего телефона)
-        const screenWidth = window.screen.width;
-        const screenHeight = window.screen.height;
-        
-        // Типичные разрешения для Poco X7 Pro (уточните ваше)
-        if ((screenWidth === 1080 && screenHeight === 2400) || 
-            (screenWidth === 1220 && screenHeight === 2712)) {
-            return true;
-        }
-        
-        return false;
     }
     
-    // Функция для получения и сохранения администратора в Firebase
+    // Функция проверки и назначения администратора
     async function checkAndSetAdmin() {
         try {
             // Проверяем, есть ли уже администратор в Firebase
-            const snapshot = await db.ref('admin/deviceAdmin').once('value');
-            const existingAdmin = snapshot.val();
+            const adminSnapshot = await db.ref('admin/config').once('value');
+            const adminConfig = adminSnapshot.val();
             
             // Если администратор уже назначен
-            if (existingAdmin && existingAdmin.isSet) {
-                // Проверяем, является ли текущее устройство тем самым админским
-                const currentFingerprint = await getDeviceFingerprint();
-                if (existingAdmin.deviceFingerprint === currentFingerprint) {
-                    isAdminMode = true;
-                    currentAdminName = "Главный администратор (Poco X7 Pro)";
-                    currentAdminAccess = "full";
-                    showAdminBadge();
-                    await addLogEntry('admin_action', 'Администратор зашёл со своего телефона Poco X7 Pro');
-                } else {
-                    isAdminMode = false;
-                    console.log("🔒 Администратор уже назначен на другом устройстве");
+            if (adminConfig && adminConfig.isSet && adminConfig.adminId) {
+                // Проверяем, является ли текущий пользователь администратором
+                const user = auth.currentUser;
+                if (user) {
+                    const userSnapshot = await db.ref('users/' + user.uid).once('value');
+                    const userData = userSnapshot.val();
+                    
+                    if (userData && userData.id === adminConfig.adminId) {
+                        // Этот пользователь - администратор!
+                        isAdminMode = true;
+                        currentAdminName = "Главный администратор";
+                        currentAdminAccess = "full";
+                        showAdminBadge();
+                        showAdminVisual();
+                        await addLogEntry('admin_action', `Администратор (ID: ${adminConfig.adminId}) зашёл в игру`);
+                        console.log(`👑 Вы администратор! (ID: ${adminConfig.adminId})`);
+                    } else {
+                        isAdminMode = false;
+                        console.log(`🔒 Вы обычный пользователь. Администратор имеет ID: ${adminConfig.adminId}`);
+                    }
                 }
                 return;
             }
             
-            // Если администратор ещё не назначен
-            if (isPocoX7Pro()) {
-                // Этот телефон становится администратором
-                const deviceFingerprint = await getDeviceFingerprint();
-                await db.ref('admin/deviceAdmin').set({
-                    isSet: true,
-                    deviceFingerprint: deviceFingerprint,
-                    deviceModel: "Poco X7 Pro",
-                    setAt: Date.now(),
-                    setBy: navigator.userAgent
-                });
+            // Если администратор ещё не назначен - назначаем первого пользователя
+            const user = auth.currentUser;
+            if (user) {
+                const userId = await getOrCreateUserId();
                 
-                isAdminMode = true;
-                currentAdminName = "Главный администратор (Poco X7 Pro)";
-                currentAdminAccess = "full";
-                showAdminBadge();
-                await addLogEntry('admin_action', '🔓 ПЕРВЫЙ ЗАХОД: Телефон Poco X7 Pro назначен администратором');
-                console.log("🎉 Вы стали администратором! (Poco X7 Pro)");
+                if (userId === 1) {
+                    // Первый пользователь становится администратором
+                    await db.ref('admin/config').set({
+                        isSet: true,
+                        adminId: 1,
+                        adminUid: user.uid,
+                        setAt: Date.now(),
+                        setByUserAgent: navigator.userAgent
+                    });
+                    
+                    isAdminMode = true;
+                    currentAdminName = "Главный администратор";
+                    currentAdminAccess = "full";
+                    showAdminBadge();
+                    showAdminVisual();
+                    await addLogEntry('admin_action', '🎉 ПЕРВЫЙ ПОЛЬЗОВАТЕЛЬ СТАЛ АДМИНИСТРАТОРОМ! (ID: 1)');
+                    console.log("👑 ПОЗДРАВЛЯЮ! Вы первый пользователь и стали АДМИНИСТРАТОРОМ!");
+                }
             }
         } catch (error) {
             console.error("Ошибка при проверке администратора:", error);
-            // Если ошибка, пробуем также проверить по телефону локально
-            if (isPocoX7Pro()) {
-                isAdminMode = true;
-                currentAdminName = "Главный администратор (Poco X7 Pro)";
-                currentAdminAccess = "full";
-                showAdminBadge();
-            }
         }
     }
     
-    // Получение уникального отпечатка устройства
-    async function getDeviceFingerprint() {
-        const userAgent = navigator.userAgent;
-        const screenRes = `${window.screen.width}x${window.screen.height}`;
-        const language = navigator.language;
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // Показать визуальные отличия для админа
+    function showAdminVisual() {
+        const gameContainer = document.getElementById('gameContainer');
+        if (gameContainer) {
+            gameContainer.classList.add('admin-mode');
+        }
         
-        // Простой fingerprint
-        return `${userAgent.substring(0, 100)}|${screenRes}|${language}|${timezone}`;
+        // Добавляем бейдж в правый верхний угол
+        if (!document.getElementById('adminIdBadge')) {
+            const badge = document.createElement('div');
+            badge.id = 'adminIdBadge';
+            badge.style.position = 'fixed';
+            badge.style.top = '10px';
+            badge.style.right = '10px';
+            badge.style.background = 'rgba(0,0,0,0.7)';
+            badge.style.color = '#ffaa44';
+            badge.style.padding = '4px 10px';
+            badge.style.borderRadius = '20px';
+            badge.style.fontSize = '0.7rem';
+            badge.style.fontFamily = 'monospace';
+            badge.style.zIndex = '9999';
+            badge.style.border = '1px solid #ffaa44';
+            badge.innerHTML = '👑 АДМИН | ID:1';
+            document.body.appendChild(badge);
+        }
     }
     
-    // Показываем бейдж админа в углу
     function showAdminBadge() {
         if (document.getElementById('adminBadge')) return;
         const badge = document.createElement('div');
         badge.id = 'adminBadge';
         badge.className = 'admin-badge';
-        badge.innerHTML = '👑 АДМИН (Poco X7 Pro)';
+        badge.innerHTML = '👑 РЕЖИМ АДМИНА';
         document.body.appendChild(badge);
-        
-        // Меняем цвет фона панели для админа
-        const container = document.querySelector('.game-container');
-        if (container) {
-            container.style.borderBottom = '6px solid #ffaa44';
-        }
     }
     
     // ======================== ПАРОЛИ АДМИНОВ (запасной вариант) ========================
@@ -684,7 +711,6 @@
             const status = snapshot.val();
             if (status && status.closed === true) {
                 gameClosed = true;
-                // Для админа не показываем оверлей
                 if (!isAdminMode) {
                     showGameClosedOverlay();
                 }
@@ -900,7 +926,8 @@
                 type: type,
                 message: message,
                 details: details,
-                adminName: currentAdminName || null
+                adminName: currentAdminName || null,
+                userId: currentUserId
             };
             await db.ref('admin/logs').push(logEntry);
         } catch (error) {
@@ -1101,7 +1128,6 @@
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById('tab-actions').classList.add('active');
             
-            // Убираем оверлей если игра закрыта
             if (gameClosed) {
                 hideGameClosedOverlay();
             }
@@ -1306,9 +1332,13 @@
     auth.signInAnonymously().catch(console.error);
     document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed || isAdminMode) restart(); });
     
-    // Запускаем проверку администратора по телефону
-    checkAndSetAdmin().then(() => {
-        fetchTasksFromGitHub();
+    // Основная инициализация: сначала авторизация, потом проверка админа, потом загрузка задач
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            await getOrCreateUserId();
+            await checkAndSetAdmin();
+            await fetchTasksFromGitHub();
+        }
     });
 </script>
 </body>
