@@ -91,12 +91,11 @@
             gap: 12px;
             font-size: 0.9rem;
             letter-spacing: 1px;
-            cursor: pointer;
         }
         .score-box span:first-child, .lives-box span:first-child, .progress-box span:first-child, .user-box span:first-child {
             color: #ffcd7e;
         }
-        .restart-btn, .create-game-btn, .join-game-btn {
+        .restart-btn, .end-game-btn {
             background: #ff914d;
             border: none;
             font-family: inherit;
@@ -109,15 +108,11 @@
             transition: 0.1s linear;
             box-shadow: 0 3px 0 #a33f00;
         }
-        .create-game-btn {
-            background: #4caf50;
-            box-shadow: 0 3px 0 #2e7d32;
+        .end-game-btn {
+            background: #f44336;
+            box-shadow: 0 3px 0 #b71c1c;
         }
-        .join-game-btn {
-            background: #2196f3;
-            box-shadow: 0 3px 0 #0b5e9e;
-        }
-        .restart-btn:active, .create-game-btn:active, .join-game-btn:active {
+        .restart-btn:active, .end-game-btn:active {
             transform: translateY(2px);
         }
         .message-area {
@@ -234,18 +229,68 @@
             font-size: 1rem;
             font-family: monospace;
             text-align: center;
-            width: 150px;
+            width: 200px;
         }
         .players-list {
             margin-top: 10px;
             font-size: 0.8rem;
             color: #aaffcc;
+            max-height: 150px;
+            overflow-y: auto;
         }
-        .teacher-controls {
+        .teacher-controls, .student-controls {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
             align-items: center;
+        }
+        .create-game-btn {
+            background: #4caf50;
+            border: none;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #2e7d32;
+        }
+        .join-game-btn {
+            background: #2196f3;
+            border: none;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #0b5e9e;
+        }
+        .copy-link-btn {
+            background: #ff9800;
+            border: none;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .game-code-display {
+            background: #00000066;
+            padding: 6px 15px;
+            border-radius: 40px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .teacher-stats {
+            background: #00000066;
+            padding: 10px;
+            border-radius: 20px;
+            margin-top: 10px;
         }
         @media (max-width: 780px) {
             .game-layout { flex-direction: column; }
@@ -259,18 +304,26 @@
 <div class="game-wrapper">
     <div class="game-container">
         <div class="multiplayer-panel" id="multiplayerPanel">
-            <div id="teacherControls" style="display:none;">
+            <div id="teacherMode" style="display:none;">
                 <div class="teacher-controls">
-                    <button class="create-game-btn" id="createGameBtn">🎮 СОЗДАТЬ ИГРУ</button>
-                    <span id="gameCodeDisplay" style="background:#00000066; padding:6px 15px; border-radius:40px; font-family:monospace; font-weight:bold;"></span>
-                    <button class="restart-btn" id="startGameBtn" style="display:none;">🚀 НАЧАТЬ ИГРУ</button>
+                    <button class="create-game-btn" id="createGameBtn">🎮 СОЗДАТЬ НОВУЮ ИГРУ</button>
+                    <div class="game-code-display" id="gameCodeDisplay"></div>
+                    <button class="copy-link-btn" id="copyTeacherLink">📋 КОПИРОВАТЬ ССЫЛКУ УЧИТЕЛЯ</button>
+                    <button class="end-game-btn" id="endGameBtn" style="display:none;">🏁 ЗАВЕРШИТЬ ИГРУ</button>
                 </div>
-                <div class="players-list" id="playersList">👥 Ожидание игроков...</div>
+                <div id="gameInfo" style="display:none;">
+                    <div class="players-list" id="playersList">👥 Ожидание игроков...</div>
+                    <div class="teacher-stats" id="teacherStats"></div>
+                </div>
             </div>
-            <div id="studentControls" style="display:none;">
-                <input type="text" id="joinGameInput" class="game-code-input" placeholder="Код игры" maxlength="6">
-                <button class="join-game-btn" id="joinGameBtn">🔌 ПРИСОЕДИНИТЬСЯ</button>
-                <div id="gameStatus"></div>
+            <div id="studentMode" style="display:none;">
+                <div class="student-controls">
+                    <input type="text" id="joinGameInput" class="game-code-input" placeholder="Введите код игры" maxlength="6">
+                    <button class="join-game-btn" id="joinGameBtn">🔌 ПРИСОЕДИНИТЬСЯ</button>
+                </div>
+                <div id="studentGameInfo" style="display:none; margin-top:10px;">
+                    <div class="game-code-display" id="studentCodeDisplay"></div>
+                </div>
             </div>
         </div>
         <div class="game-layout">
@@ -302,13 +355,14 @@
 <script>
     // ======================== НАСТРОЙКА FIREBASE ========================
     const firebaseConfig = {
-        apiKey: "AIzaSyCGrfi8JM8UseO0m3qQuQc_ZuGnxXxXYgE",
-        authDomain: "igra-82a42.firebaseapp.com",
-        projectId: "igra-82a42",
-        storageBucket: "igra-82a42.firebasestorage.app",
-        messagingSenderId: "246552412786",
-        appId: "1:246552412786:web:013a67819cfc816683b8eb"
-    };
+  apiKey: "AIzaSyCGrfi8JM8UseO0m3qQuQc_ZuGnxXxXYgE",
+  authDomain: "igra-82a42.firebaseapp.com",
+  databaseURL: "https://igra-82a42-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "igra-82a42",
+  storageBucket: "igra-82a42.firebasestorage.app",
+  messagingSenderId: "246552412786",
+  appId: "1:246552412786:web:013a67819cfc816683b8eb"
+};
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
@@ -369,7 +423,7 @@
                 setTimeout(() => {
                     if(loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
                 }, 500);
-                checkAuthAndShowRole();
+                checkURLAndMode();
             } else {
                 throw new Error("Нет задач");
             }
@@ -381,7 +435,296 @@
         }
     }
 
-    // ======================== ИГРОВЫЕ ФУНКЦИИ (БЕЗ СЛОЖНОСТИ) ========================
+    // ======================== ПРОВЕРКА URL ДЛЯ РАЗДЕЛЕНИЯ РОЛЕЙ ========================
+    function checkURLAndMode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameCode = urlParams.get('code');
+        const role = urlParams.get('role');
+        
+        if (role === 'teacher' && gameCode) {
+            // Учитель присоединяется к созданной игре
+            joinAsTeacher(gameCode);
+        } else if (gameCode) {
+            // Ученик присоединяется по коду
+            showStudentModeWithCode(gameCode);
+        } else {
+            // Обычный режим - показываем выбор
+            showRoleSelection();
+        }
+    }
+    
+    function showRoleSelection() {
+        document.getElementById('teacherMode').style.display = 'block';
+        document.getElementById('studentMode').style.display = 'block';
+        roleDisplay.innerText = "👤 ВЫБЕРИТЕ РЕЖИМ";
+    }
+    
+    function showStudentModeWithCode(code) {
+        document.getElementById('studentMode').style.display = 'block';
+        document.getElementById('teacherMode').style.display = 'none';
+        document.getElementById('joinGameInput').value = code;
+        roleDisplay.innerText = "👨‍🎓 УЧЕНИК";
+        setTimeout(() => joinGame(), 500);
+    }
+    
+    // ======================== ФУНКЦИИ УЧИТЕЛЯ ========================
+    function generateGameCode() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+    
+    async function createGame() {
+        if (!gameReady) {
+            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
+            return;
+        }
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const gameCode = generateGameCode();
+        currentGameId = gameCode;
+        isTeacher = true;
+        isPlayer = false;
+        
+        const gameRef = db.ref(`games/${gameCode}`);
+        await gameRef.set({
+            code: gameCode,
+            teacherId: user.uid,
+            createdAt: Date.now(),
+            started: false,
+            ended: false,
+            players: {}
+        });
+        
+        playerId = user.uid;
+        await gameRef.child(`players/${playerId}`).set({
+            name: "Учитель",
+            isTeacher: true,
+            score: 0,
+            correctCount: 0,
+            stability: 3,
+            joinedAt: Date.now(),
+            victory: false
+        });
+        
+        const teacherLink = `${window.location.origin}${window.location.pathname}?role=teacher&code=${gameCode}`;
+        const studentLink = `${window.location.origin}${window.location.pathname}?code=${gameCode}`;
+        
+        document.getElementById('gameCodeDisplay').innerHTML = `🎮 КОД: ${gameCode}`;
+        document.getElementById('endGameBtn').style.display = 'inline-block';
+        document.getElementById('gameInfo').style.display = 'block';
+        
+        messageDiv.innerHTML = `✅ Игра создана!<br>📋 Ссылка для УЧИТЕЛЯ: ${teacherLink}<br>📋 Ссылка для УЧЕНИКОВ: ${studentLink}`;
+        roleDisplay.innerText = "👨‍🏫 УЧИТЕЛЬ";
+        
+        // Скрываем student mode
+        document.getElementById('studentMode').style.display = 'none';
+        
+        // Автоматически стартуем игру для учителя
+        gameStarted = true;
+        await db.ref(`games/${gameCode}`).update({ started: true });
+        restartGame();
+        
+        // Слушаем игроков
+        db.ref(`games/${gameCode}/players`).on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            const playersArray = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+            const playersList = playersArray.map(([id, p]) => 
+                `👨‍🎓 ${p.name || id.substring(0,6)}: ${p.correctCount || 0}/15 | ${p.stability || 3}⚡`
+            ).join('<br>') || "👥 Ожидание игроков...";
+            document.getElementById('playersList').innerHTML = `👥 ИГРОКИ:<br>${playersList}`;
+            
+            // Обновляем статистику учителя
+            const teacherData = players[user.uid];
+            if (teacherData) {
+                document.getElementById('teacherStats').innerHTML = `
+                    📊 ВАШ ПРОГРЕСС: ${teacherData.correctCount || 0}/15 задач<br>
+                    🔋 ОЧКИ: ${teacherData.score || 0} МВт<br>
+                    ⚡ СТАБИЛЬНОСТЬ: ${teacherData.stability || 3}
+                `;
+            }
+        });
+    }
+    
+    async function joinAsTeacher(gameCode) {
+        if (!gameReady) {
+            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
+            return;
+        }
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const gameRef = db.ref(`games/${gameCode}`);
+        const snapshot = await gameRef.once('value');
+        const game = snapshot.val();
+        
+        if (!game) {
+            messageDiv.innerHTML = "❌ Игра не найдена!";
+            return;
+        }
+        
+        if (game.teacherId !== user.uid) {
+            messageDiv.innerHTML = "❌ Только учитель, создавший игру, может использовать эту ссылку!";
+            return;
+        }
+        
+        currentGameId = gameCode;
+        isTeacher = true;
+        isPlayer = false;
+        playerId = user.uid;
+        
+        document.getElementById('teacherMode').style.display = 'block';
+        document.getElementById('studentMode').style.display = 'none';
+        document.getElementById('gameCodeDisplay').innerHTML = `🎮 КОД: ${gameCode}`;
+        document.getElementById('endGameBtn').style.display = 'inline-block';
+        document.getElementById('gameInfo').style.display = 'block';
+        roleDisplay.innerText = "👨‍🏫 УЧИТЕЛЬ";
+        
+        // Обновляем данные учителя
+        await gameRef.child(`players/${playerId}`).set({
+            name: "Учитель",
+            isTeacher: true,
+            score: 0,
+            correctCount: 0,
+            stability: 3,
+            joinedAt: Date.now(),
+            victory: false
+        });
+        
+        if (!game.started) {
+            gameStarted = true;
+            await db.ref(`games/${gameCode}`).update({ started: true });
+        } else {
+            gameStarted = true;
+        }
+        
+        restartGame();
+        messageDiv.innerHTML = `✅ Вы вошли как учитель в игру ${gameCode}!`;
+        
+        // Слушаем игроков
+        db.ref(`games/${gameCode}/players`).on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            const playersArray = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+            const playersList = playersArray.map(([id, p]) => 
+                `👨‍🎓 ${p.name || id.substring(0,6)}: ${p.correctCount || 0}/15 | ${p.stability || 3}⚡`
+            ).join('<br>') || "👥 Ожидание игроков...";
+            document.getElementById('playersList').innerHTML = `👥 ИГРОКИ:<br>${playersList}`;
+            
+            const teacherData = players[user.uid];
+            if (teacherData) {
+                document.getElementById('teacherStats').innerHTML = `
+                    📊 ВАШ ПРОГРЕСС: ${teacherData.correctCount || 0}/15 задач<br>
+                    🔋 ОЧКИ: ${teacherData.score || 0} МВт<br>
+                    ⚡ СТАБИЛЬНОСТЬ: ${teacherData.stability || 3}
+                `;
+            }
+        });
+    }
+    
+    async function endGame() {
+        if (!currentGameId || !isTeacher) return;
+        
+        const gameRef = db.ref(`games/${currentGameId}`);
+        await gameRef.update({ ended: true, started: false });
+        
+        gameActive = false;
+        gameStarted = false;
+        messageDiv.innerHTML = "🏁 ИГРА ЗАВЕРШЕНА УЧИТЕЛЕМ! Спасибо за участие! 🏁";
+        
+        if (nextTimer) clearTimeout(nextTimer);
+        waitForAnswer = true;
+        
+        // Показываем финальную таблицу
+        const playersSnapshot = await gameRef.child('players').once('value');
+        const players = playersSnapshot.val() || {};
+        const results = Object.entries(players).map(([id, p]) => 
+            `${p.isTeacher ? '👨‍🏫 УЧИТЕЛЬ' : '👨‍🎓 УЧЕНИК'}: ${p.correctCount || 0}/15 задач, ${p.score || 0} МВт`
+        ).join('<br>');
+        
+        messageDiv.innerHTML = `🏆 ИТОГИ ИГРЫ 🏆<br>${results}`;
+        drawGameOverVisual();
+    }
+    
+    // ======================== ФУНКЦИИ УЧЕНИКА ========================
+    async function joinGame() {
+        if (!gameReady) {
+            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
+            return;
+        }
+        const gameCode = document.getElementById('joinGameInput').value.toUpperCase();
+        if (!gameCode) return;
+        
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const gameRef = db.ref(`games/${gameCode}`);
+        const snapshot = await gameRef.once('value');
+        const game = snapshot.val();
+        
+        if (!game) {
+            messageDiv.innerHTML = "❌ Игра не найдена! Проверьте код.";
+            return;
+        }
+        
+        if (game.ended) {
+            messageDiv.innerHTML = "❌ Эта игра уже завершена!";
+            return;
+        }
+        
+        currentGameId = gameCode;
+        isTeacher = false;
+        isPlayer = true;
+        playerId = user.uid;
+        
+        await gameRef.child(`players/${playerId}`).set({
+            name: "Ученик",
+            isTeacher: false,
+            score: 0,
+            correctCount: 0,
+            stability: 3,
+            joinedAt: Date.now(),
+            victory: false
+        });
+        
+        document.getElementById('studentGameInfo').style.display = 'block';
+        document.getElementById('studentCodeDisplay').innerHTML = `🎮 КОД ИГРЫ: ${gameCode}`;
+        document.getElementById('teacherMode').style.display = 'none';
+        roleDisplay.innerText = "👨‍🎓 УЧЕНИК";
+        
+        messageDiv.innerHTML = `✅ Присоединились к игре ${gameCode}! Ожидайте начала.`;
+        
+        if (game.started && !game.ended) {
+            gameStarted = true;
+            messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Удачи!";
+            restartGame();
+        }
+        
+        // Слушаем старт/конец игры
+        db.ref(`games/${gameCode}`).on('value', (snapshot) => {
+            const gameData = snapshot.val();
+            if (gameData) {
+                if (gameData.ended) {
+                    gameStarted = false;
+                    gameActive = false;
+                    messageDiv.innerHTML = "🏁 ИГРА ЗАВЕРШЕНА УЧИТЕЛЕМ! 🏁";
+                    if (nextTimer) clearTimeout(nextTimer);
+                } else if (gameData.started && !gameStarted && !gameData.ended) {
+                    gameStarted = true;
+                    messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Удачи!";
+                    restartGame();
+                }
+            }
+        });
+        
+        // Синхронизация прогресса
+        db.ref(`games/${gameCode}/players/${playerId}`).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && gameStarted && !isTeacher) {
+                // Обновляем UI из Firebase (если нужно)
+            }
+        });
+    }
+    
+    // ======================== ИГРОВЫЕ ФУНКЦИИ ========================
     function getRandomProblem() {
         if (!TASKS_LIBRARY.length) {
             return {
@@ -401,9 +744,8 @@
             hint: base.hint || "Проверьте формулу"
         };
     }
-
+    
     function generateOptions(correct) {
-        // Простая генерация без влияния сложности
         let opts = new Set();
         opts.add(correct);
         while(opts.size < 4) {
@@ -419,14 +761,13 @@
         }
         return arr;
     }
-
+    
     function updateUI() {
         bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
     }
-
-    // Обновление прогресса в Firebase
+    
     function updateFirebaseProgress() {
-        if (currentGameId && playerId) {
+        if (currentGameId && playerId && gameStarted) {
             db.ref(`games/${currentGameId}/players/${playerId}`).update({
                 score: score,
                 correctCount: correctCount,
@@ -435,7 +776,7 @@
             });
         }
     }
-
+    
     function handleAnswer(selectedVal) {
         if(!gameActive || waitForAnswer || victoryFlag || !gameStarted) return;
         const isCorrect = (selectedVal === currentProblem.correctAnswer);
@@ -462,7 +803,7 @@
         nextTimer = setTimeout(() => { if(gameActive && !victoryFlag && stability > 0 && gameStarted) loadNewChallenge(); nextTimer = null; }, 1300);
         drawPowerSystem();
     }
-
+    
     function loadNewChallenge() {
         if(!gameActive || victoryFlag || !gameStarted) return;
         if(nextTimer) clearTimeout(nextTimer);
@@ -475,7 +816,7 @@
         messageDiv.innerHTML = `💡 ${currentProblem.hint}`;
         drawPowerSystem();
     }
-
+    
     function renderAnswerButtons() {
         answersContainer.innerHTML = '';
         optionsArray.forEach((opt) => {
@@ -493,7 +834,7 @@
             answersContainer.appendChild(btn);
         });
     }
-
+    
     function victoryGame() {
         if(victoryFlag) return;
         victoryFlag = true;
@@ -506,7 +847,7 @@
             db.ref(`games/${currentGameId}/players/${playerId}`).update({ victory: true });
         }
     }
-
+    
     function gameDefeat() {
         if(victoryFlag) return;
         gameActive = false;
@@ -518,7 +859,7 @@
             db.ref(`games/${currentGameId}/players/${playerId}`).update({ defeated: true });
         }
     }
-
+    
     function restartGame() {
         if(nextTimer) clearTimeout(nextTimer);
         score = 0; stability = 3; correctCount = 0;
@@ -527,139 +868,10 @@
         updateUI();
         if (gameStarted) loadNewChallenge();
         drawPowerSystem();
-        if (currentGameId && playerId) {
+        if (currentGameId && playerId && gameStarted) {
             db.ref(`games/${currentGameId}/players/${playerId}`).update({
                 score: 0, correctCount: 0, stability: 3, victory: false, defeated: false
             });
-        }
-    }
-
-    // ======================== МУЛЬТИПЛЕЕРНЫЕ ФУНКЦИИ ========================
-    function generateGameCode() {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
-    async function createGame() {
-        if (!gameReady) {
-            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
-            return;
-        }
-        const user = auth.currentUser;
-        if (!user) return;
-        
-        const gameCode = generateGameCode();
-        currentGameId = gameCode;
-        isTeacher = true;
-        isPlayer = false;
-        
-        const gameRef = db.ref(`games/${gameCode}`);
-        await gameRef.set({
-            code: gameCode,
-            teacherId: user.uid,
-            createdAt: Date.now(),
-            started: false,
-            players: {}
-        });
-        
-        playerId = user.uid;
-        await gameRef.child(`players/${playerId}`).set({
-            name: "Учитель",
-            isTeacher: true,
-            score: 0,
-            correctCount: 0,
-            stability: 3,
-            joinedAt: Date.now()
-        });
-        
-        document.getElementById('gameCodeDisplay').innerHTML = `🎮 КОД: ${gameCode}`;
-        document.getElementById('startGameBtn').style.display = 'inline-block';
-        messageDiv.innerHTML = `✅ Игра создана! Код: ${gameCode}. Поделитесь им с учениками.`;
-        roleDisplay.innerText = "👨‍🏫 УЧИТЕЛЬ";
-        
-        // Слушаем игроков
-        db.ref(`games/${gameCode}/players`).on('value', (snapshot) => {
-            const players = snapshot.val() || {};
-            const playersList = Object.entries(players)
-                .filter(([id, p]) => !p.isTeacher)
-                .map(([id, p]) => `👨‍🎓 ${p.name || id.substring(0,6)} (${p.correctCount || 0}/15)`)
-                .join('<br>') || "👥 Ожидание игроков...";
-            document.getElementById('playersList').innerHTML = `👥 ИГРОКИ:<br>${playersList}`;
-        });
-    }
-    
-    async function startGameForAll() {
-        if (!currentGameId || !isTeacher) return;
-        gameStarted = true;
-        await db.ref(`games/${currentGameId}`).update({ started: true });
-        messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Все могут отвечать!";
-        restartGame();
-    }
-    
-    async function joinGame() {
-        if (!gameReady) {
-            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
-            return;
-        }
-        const gameCode = document.getElementById('joinGameInput').value.toUpperCase();
-        if (!gameCode) return;
-        
-        const user = auth.currentUser;
-        if (!user) return;
-        
-        const gameRef = db.ref(`games/${gameCode}`);
-        const snapshot = await gameRef.once('value');
-        const game = snapshot.val();
-        
-        if (!game) {
-            messageDiv.innerHTML = "❌ Игра не найдена! Проверьте код.";
-            return;
-        }
-        
-        currentGameId = gameCode;
-        isTeacher = false;
-        isPlayer = true;
-        playerId = user.uid;
-        
-        await gameRef.child(`players/${playerId}`).set({
-            name: "Ученик",
-            isTeacher: false,
-            score: 0,
-            correctCount: 0,
-            stability: 3,
-            joinedAt: Date.now()
-        });
-        
-        roleDisplay.innerText = "👨‍🎓 УЧЕНИК";
-        messageDiv.innerHTML = `✅ Присоединились к игре ${gameCode}! Ожидайте начала.`;
-        
-        // Слушаем старт игры
-        db.ref(`games/${gameCode}/started`).on('value', (snapshot) => {
-            const started = snapshot.val();
-            if (started && !gameStarted) {
-                gameStarted = true;
-                messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Удачи!";
-                restartGame();
-            }
-        });
-        
-        // Слушаем свой прогресс (синхронизация)
-        db.ref(`games/${gameCode}/players/${playerId}`).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data && gameStarted && !isTeacher) {
-                // Синхронизируем состояние с сервером (если нужно)
-            }
-        });
-    }
-    
-    function checkAuthAndShowRole() {
-        const user = auth.currentUser;
-        if (user) {
-            document.getElementById('teacherControls').style.display = 'block';
-            document.getElementById('studentControls').style.display = 'flex';
-            document.getElementById('studentControls').style.gap = '10px';
-            document.getElementById('studentControls').style.flexWrap = 'wrap';
-            document.getElementById('studentControls').style.alignItems = 'center';
-            roleDisplay.innerText = "👤 ВЫБЕРИТЕ РЕЖИМ";
         }
     }
     
@@ -690,20 +902,28 @@
     function drawWrongFlashEffect(){ ctx.fillStyle="#ff6666aa"; ctx.fillRect(0,0,canvas.width,canvas.height); setTimeout(()=>drawPowerSystem(),180); }
     function drawGameOverVisual(){ drawPowerSystem(); }
     function drawVictoryScene(){ drawPowerSystem(); }
-
+    
+    function copyTeacherLink() {
+        const teacherLink = `${window.location.origin}${window.location.pathname}?role=teacher&code=${currentGameId}`;
+        navigator.clipboard.writeText(teacherLink);
+        messageDiv.innerHTML = "📋 Ссылка для учителя скопирована!";
+        setTimeout(() => { if(messageDiv) messageDiv.innerHTML = "✅ Готово!"; }, 1500);
+    }
+    
     // ======================== ИНИЦИАЛИЗАЦИЯ ========================
     auth.signInAnonymously().catch(error => console.error("Ошибка анонимного входа:", error));
     auth.onAuthStateChanged(user => {
         if(user) {
             console.log("Авторизован:", user.uid);
-            if(gameReady) checkAuthAndShowRole();
+            if(gameReady) checkURLAndMode();
         }
     });
     
     document.getElementById('createGameBtn').addEventListener('click', createGame);
-    document.getElementById('startGameBtn').addEventListener('click', startGameForAll);
+    document.getElementById('endGameBtn').addEventListener('click', endGame);
     document.getElementById('joinGameBtn').addEventListener('click', joinGame);
     document.getElementById('restartGame').addEventListener('click', () => { if(gameStarted) restartGame(); });
+    document.getElementById('copyTeacherLink').addEventListener('click', copyTeacherLink);
     
     fetchTasksFromGitHub();
 </script>
