@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Энергомост: Математика энергетика</title>
-    <!-- Firebase SDKs (только для простой анонимной авторизации) -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* ===== Стили ===== */
         * {
             user-select: none;
             -webkit-tap-highlight-color: transparent;
@@ -92,7 +92,7 @@
             font-weight: bold;
         }
 
-        .score-box, .lives-box, .progress-box, .user-box {
+        .score-box, .lives-box, .progress-box {
             background: #00000066;
             padding: 6px 18px;
             border-radius: 40px;
@@ -103,7 +103,7 @@
             cursor: pointer;
         }
 
-        .score-box span:first-child, .lives-box span:first-child, .progress-box span:first-child, .user-box span:first-child {
+        .score-box span:first-child, .lives-box span:first-child, .progress-box span:first-child {
             color: #ffcd7e;
         }
 
@@ -225,6 +225,18 @@
             box-shadow: 0 25px 40px black;
             color: #eee;
         }
+        .admin-card input {
+            width: 90%;
+            padding: 12px;
+            margin: 15px 0;
+            background: #1f3a33;
+            border: 1px solid #8bc34a;
+            border-radius: 60px;
+            color: #ffecb3;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+        }
         .admin-card button {
             background: #3a7a5a;
             border: none;
@@ -245,6 +257,38 @@
             color: #ffaa66;
         }
 
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+            color: #ffdfa5;
+            font-family: monospace;
+            font-size: 1.2rem;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #3a7a5a;
+            border-top: 6px solid #ffaa44;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 780px) {
             .game-layout { flex-direction: column; }
             .answer-btn { padding: 10px 5px; font-size: 1.2rem; }
@@ -263,12 +307,12 @@
             <div class="task-panel">
                 <div class="equation-card">
                     <span class="badge-power">⚡ РАСЧЁТ ЭНЕРГОСИСТЕМЫ ⚡</span>
-                    <div class="equation-text" id="eqDisplay">Загрузка...</div>
+                    <div class="equation-text" id="eqDisplay">Загрузка задач...</div>
                     <div class="question-text" id="questionDisplay">Пожалуйста, подождите</div>
                 </div>
                 <div class="answers-grid" id="answersContainer"></div>
                 <div class="message-area" id="gameMessage">
-                    🎛️ Решайте задачи, чтобы построить энергомост!
+                    🎛️ Загрузка задач с GitHub...
                 </div>
             </div>
         </div>
@@ -278,8 +322,7 @@
                 <span id="scoreValue">0</span>
             </div>
             <div class="lives-box"><span>⚡ СТАБИЛЬНОСТЬ</span><span id="livesValue">3</span></div>
-            <div class="progress-box"><span>🏗️ ЭНЕРГОМОСТ</span><span id="bridgeProgress">0/15</span></div>
-            <div class="user-box"><span>👤 ID</span><span id="userIdDisplay">Не авторизован</span></div>
+            <div class="progress-box"><span>🏗️ ЭНЕРГОМОСТ</span><span id="bridgeProgress">0/30</span></div>
             <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК</button>
         </div>
     </div>
@@ -288,17 +331,20 @@
 <!-- Модалка админ-панели -->
 <div id="adminModal" class="admin-modal">
     <div class="admin-card">
-        <h3>⚡ АДМИН-ПАНЕЛЬ ⚡</h3>
-        <div id="adminPanelActions">
+        <h3>⚡ АДМИН-ДОСТУП ⚡</h3>
+        <input type="password" id="adminCodeInput" placeholder="Введите код администратора" autocomplete="off">
+        <div>
+            <button id="adminAuthBtn">🔑 ВОЙТИ</button>
+            <button id="adminCloseBtn" class="close-admin">✖️ ЗАКРЫТЬ</button>
+        </div>
+        <div id="adminPanelActions" style="display: none; margin-top: 15px;">
             <button id="giveCorrectAnswerBtn">✅ ВЫДАТЬ ПРАВИЛЬНЫЙ ОТВЕТ</button>
             <button id="instaWinsBtn">🏆 МГНОВЕННАЯ ПОБЕДА</button>
             <button id="addLivesBtn">❤️ +1 СТАБИЛЬНОСТЬ</button>
             <button id="addPointsBtn">🔋 +50 МВт</button>
             <div class="admin-status" id="adminStatusMsg"></div>
         </div>
-        <div style="margin-top: 15px;">
-            <button id="adminCloseBtn" class="close-admin">✖️ ЗАКРЫТЬ</button>
-        </div>
+        <div class="admin-status" id="adminLoginMsg">Введите код администратора</div>
     </div>
 </div>
 
@@ -307,6 +353,7 @@
     const firebaseConfig = {
         apiKey: "AIzaSyCGrfi8JM8UseO0m3qQuQc_ZuGnxXxXYgE",
         authDomain: "igra-82a42.firebaseapp.com",
+        databaseURL: "https://igra-82a42-default-rtdb.europe-west1.firebasedatabase.app",
         projectId: "igra-82a42",
         storageBucket: "igra-82a42.firebasestorage.app",
         messagingSenderId: "246552412786",
@@ -316,12 +363,53 @@
     // Инициализация Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.database();
 
+    // ======================== НАСТРОЙКА TELEGRAM ========================
+    const TELEGRAM_BOT_TOKEN = "8417193861:AAEDz_zxGbWCmbSXBRbA-omQws5jE6hrE54";
+    const TELEGRAM_CHAT_ID = "1209403544";
+    
+    // Функция отправки сообщения в Telegram
+    async function sendTelegramMessage(message) {
+        try {
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: message,
+                    parse_mode: 'HTML'
+                })
+            });
+            const data = await response.json();
+            if (data.ok) {
+                console.log("Сообщение в Telegram отправлено");
+            } else {
+                console.error("Ошибка отправки в Telegram:", data);
+            }
+        } catch (error) {
+            console.error("Ошибка при отправке в Telegram:", error);
+        }
+    }
+    const ADMIN_PASSWORDS = {
+        "14881161": { name: "АДМИН", emoji: "👑" },
+        "148867": { name: "АДМИН", emoji: "⭐" }  // Замените на пароль друга
+    };
+    
     // ======================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ИГРЫ ========================
-    const TARGET_CORRECT = 15;
+    let ALL_TASKS = [];
+    let TASKS_LEVEL_1 = [];
+    let TASKS_LEVEL_2 = [];
+    let TASKS_LEVEL_3 = [];
+    let gameReady = false;
+    const TARGET_CORRECT = 30;
     let correctCount = 0;
     let gameActive = true;
     let victoryFlag = false;
+    let usedTasks = [];
     
     const canvas = document.getElementById('powerCanvas');
     const ctx = canvas.getContext('2d');
@@ -336,7 +424,6 @@
     let waitForAnswer = false;
     let nextTimer = null;
     
-    // DOM элементы
     const scoreSpan = document.getElementById('scoreValue');
     const livesSpan = document.getElementById('livesValue');
     const bridgeProgressSpan = document.getElementById('bridgeProgress');
@@ -344,33 +431,49 @@
     const eqDisplay = document.getElementById('eqDisplay');
     const questionDisplay = document.getElementById('questionDisplay');
     const answersContainer = document.getElementById('answersContainer');
-    const userIdSpan = document.getElementById('userIdDisplay');
     
-    // Админ-переменные
     let isAdminMode = false;
     
-    // ========== ВСТРОЕННЫЕ ЗАДАЧИ ==========
-    const TASKS_LIBRARY = [
-        { title: "⚡ ЗАКОН ОМА", eq: "U = 24 В, I = 2 А", question: "Найдите сопротивление R (в омах)", correctAnswer: 12, hint: "R = U / I" },
-        { title: "⚡ ЗАКОН ОМА", eq: "U = 220 В, I = 4 А", question: "Найдите сопротивление R (в омах)", correctAnswer: 55, hint: "R = U / I" },
-        { title: "⚡ ЗАКОН ОМА", eq: "U = 48 В, I = 6 А", question: "Найдите сопротивление R (в омах)", correctAnswer: 8, hint: "R = U / I" },
-        { title: "🔋 МОЩНОСТЬ ТОКА", eq: "U = 220 В, I = 5 А", question: "Найдите мощность P (в ваттах)", correctAnswer: 1100, hint: "P = U × I" },
-        { title: "🔋 МОЩНОСТЬ ТОКА", eq: "U = 12 В, I = 2 А", question: "Найдите мощность P (в ваттах)", correctAnswer: 24, hint: "P = U × I" },
-        { title: "🔋 МОЩНОСТЬ ТОКА", eq: "U = 380 В, I = 10 А", question: "Найдите мощность P (в ваттах)", correctAnswer: 3800, hint: "P = U × I" },
-        { title: "🔗 ПОСЛЕДОВАТЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 10 Ω, R₂ = 20 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 30, hint: "Rобщ = R₁ + R₂" },
-        { title: "🔗 ПОСЛЕДОВАТЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 15 Ω, R₂ = 25 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 40, hint: "Rобщ = R₁ + R₂" },
-        { title: "🔗 ПОСЛЕДОВАТЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 30 Ω, R₂ = 50 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 80, hint: "Rобщ = R₁ + R₂" },
-        { title: "🔀 ПАРАЛЛЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 20 Ω, R₂ = 30 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 12, hint: "1/Rобщ = 1/R₁ + 1/R₂" },
-        { title: "🔀 ПАРАЛЛЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 10 Ω, R₂ = 10 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 5, hint: "1/Rобщ = 1/R₁ + 1/R₂" },
-        { title: "🔀 ПАРАЛЛЕЛЬНОЕ СОЕДИНЕНИЕ", eq: "R₁ = 12 Ω, R₂ = 12 Ω", question: "Найдите общее сопротивление Rобщ", correctAnswer: 6, hint: "1/Rобщ = 1/R₁ + 1/R₂" },
-        { title: "♻️ КОЭФФИЦИЕНТ ПОЛЕЗНОГО ДЕЙСТВИЯ", eq: "КПД = 75%, Pвх = 400 Вт", question: "Найдите полезную мощность Pвых", correctAnswer: 300, hint: "Pвых = Pвх × КПД / 100" },
-        { title: "♻️ КОЭФФИЦИЕНТ ПОЛЕЗНОГО ДЕЙСТВИЯ", eq: "КПД = 85%, Pвх = 200 Вт", question: "Найдите полезную мощность Pвых", correctAnswer: 170, hint: "Pвых = Pвх × КПД / 100" },
-        { title: "♻️ КОЭФФИЦИЕНТ ПОЛЕЗНОГО ДЕЙСТВИЯ", eq: "КПД = 90%, Pвх = 500 Вт", question: "Найдите полезную мощность Pвых", correctAnswer: 450, hint: "Pвых = Pвх × КПД / 100" },
-        { title: "💡 РАБОТА ЭЛЕКТРИЧЕСКОГО ТОКА", eq: "P = 1000 Вт, t = 30 с", question: "Найдите работу A (в джоулях)", correctAnswer: 30000, hint: "A = P × t" },
-        { title: "💡 РАБОТА ЭЛЕКТРИЧЕСКОГО ТОКА", eq: "P = 500 Вт, t = 10 с", question: "Найдите работу A (в джоулях)", correctAnswer: 5000, hint: "A = P × t" }
-    ];
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач с GitHub...</div>`;
+    document.body.appendChild(loadingOverlay);
     
-    // ======================== СЕКРЕТНЫЙ ВХОД В АДМИНКУ (5 тапов по мегаваттам) ========================
+    // ======================== ЗАГРУЗКА ЗАДАЧ С GITHUB ========================
+    const GITHUB_TASKS_URL = "https://raw.githubusercontent.com/mihail245/Electro-tetris/refs/heads/main/tasks.json";
+    
+    async function fetchTasksFromGitHub() {
+        try {
+            const response = await fetch(GITHUB_TASKS_URL, { cache: "no-store" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            if (Array.isArray(data) && data.length > 0) {
+                ALL_TASKS = data;
+                TASKS_LEVEL_1 = ALL_TASKS.filter(task => task.level === 1);
+                TASKS_LEVEL_2 = ALL_TASKS.filter(task => task.level === 2);
+                TASKS_LEVEL_3 = ALL_TASKS.filter(task => task.level === 3);
+                
+                gameReady = true;
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    if(loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
+                }, 500);
+                restart();
+            } else {
+                throw new Error("Нет задач или неверный формат");
+            }
+        } catch (error) {
+            loadingOverlay.innerHTML = `<div style="color: #ff8866;">❌ ОШИБКА ЗАГРУЗКИ</div>
+                                        <div>${error.message}</div>
+                                        <button id="reloadBtn" style="margin-top:30px;padding:10px 25px;background:#ffaa44;border:none;border-radius:40px;cursor:pointer;">🔄 ПОВТОРИТЬ</button>`;
+            const reloadBtn = document.getElementById('reloadBtn');
+            if(reloadBtn) reloadBtn.onclick = () => location.reload();
+            gameReady = false;
+        }
+    }
+    
+    // ======================== СЕКРЕТНЫЙ ВХОД В АДМИНКУ ========================
     let tapCount = 0;
     let tapTimer = null;
     const secretTapArea = document.getElementById('secretTapArea');
@@ -392,12 +495,7 @@
         if(tapCount >= 5) {
             tapCount = 0;
             if(tapTimer) clearTimeout(tapTimer);
-            isAdminMode = true;
             openAdminModal();
-            messageDiv.innerHTML = "🔓 АДМИН-РЕЖИМ АКТИВИРОВАН!";
-            setTimeout(() => {
-                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта. Используйте команды.";
-            }, 2000);
         }
     }
     
@@ -409,20 +507,78 @@
         });
     }
     
-    // ======================== АДМИН-ФУНКЦИИ И МОДАЛКА ========================
+    // ======================== АДМИН-ФУНКЦИИ ========================
     const adminModal = document.getElementById('adminModal');
-    const adminStatusMsg = document.getElementById('adminStatusMsg');
+    const adminCodeInput = document.getElementById('adminCodeInput');
+    const adminAuthBtn = document.getElementById('adminAuthBtn');
     const adminCloseBtn = document.getElementById('adminCloseBtn');
+    const adminPanelActions = document.getElementById('adminPanelActions');
+    const adminLoginMsg = document.getElementById('adminLoginMsg');
+    const adminStatusMsg = document.getElementById('adminStatusMsg');
     
     function openAdminModal() {
-        if (!isAdminMode) return;
         adminModal.style.display = 'flex';
-        adminStatusMsg.innerHTML = 'Администратор энергосистемы онлайн ⚡';
+        adminCodeInput.value = '';
+        adminPanelActions.style.display = 'none';
+        adminLoginMsg.innerHTML = 'Введите код администратора';
+        adminLoginMsg.style.color = '#ffaa66';
+        adminStatusMsg.innerHTML = '';
     }
     
     function closeAdminModal() {
         adminModal.style.display = 'none';
     }
+    
+    // Проверка пароля и отправка уведомления
+    adminAuthBtn.addEventListener('click', async () => {
+        const enteredCode = adminCodeInput.value.trim();
+        if(enteredCode === "") {
+            adminLoginMsg.innerHTML = '❌ Введите код!';
+            adminLoginMsg.style.color = '#ff8866';
+            return;
+        }
+        
+        // Проверяем, есть ли такой пароль в списке
+        const adminInfo = ADMIN_PASSWORDS[enteredCode];
+        
+        if (adminInfo) {
+            // ПРАВИЛЬНЫЙ ПАРОЛЬ - отправляем уведомление в Telegram
+            const date = new Date().toLocaleString('ru-RU');
+            const userAgent = navigator.userAgent;
+            const message = `🔐 <b>АДМИН-ВХОД В ИГРУ</b>\n\n` +
+                           `👤 ${adminInfo.emoji} <b>${adminInfo.name}</b>\n` +
+                           `🔑 Код: <code>${enteredCode}</code>\n` +
+                           `⏰ Время: ${date}\n` +
+                           `🌐 Браузер: ${userAgent.substring(0, 100)}\n` +
+                           `📱 Устройство: ${/Mobile|Android|iPhone|iPad/i.test(userAgent) ? 'Мобильное' : 'Компьютер'}`;
+            
+            // Отправляем уведомление
+            await sendTelegramMessage(message);
+            
+            // Даем доступ
+            isAdminMode = true;
+            adminLoginMsg.innerHTML = `✅ ДОСТУП РАЗРЕШЁН! (${adminInfo.name})`;
+            adminLoginMsg.style.color = '#8bc34a';
+            adminPanelActions.style.display = 'block';
+            adminStatusMsg.innerHTML = `Добро пожаловать, ${adminInfo.name}! ⚡`;
+            messageDiv.innerHTML = `🔓 АДМИН-РЕЖИМ АКТИВИРОВАН (${adminInfo.name})!`;
+            
+            setTimeout(() => {
+                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта. Используйте команды.";
+            }, 3000);
+        } else {
+            // НЕПРАВИЛЬНЫЙ ПАРОЛЬ - не отправляем уведомление
+            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД! Доступ запрещён.';
+            adminLoginMsg.style.color = '#ff8866';
+            adminPanelActions.style.display = 'none';
+            isAdminMode = false;
+        }
+    });
+    
+    adminCloseBtn.addEventListener('click', closeAdminModal);
+    adminModal.addEventListener('click', (e) => {
+        if(e.target === adminModal) closeAdminModal();
+    });
     
     function adminGiveCorrectAnswer() {
         if(!isAdminMode) { adminStatusMsg.innerHTML = '⛔ Нет прав администратора.'; return; }
@@ -453,7 +609,7 @@
         gameActive = false;
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД СИЯЕТ! ✨🏆<br>Счёт: ${score} МВт.`;
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ✨🏆<br>Счёт: ${score} МВт.`;
         drawVictoryScene();
         adminStatusMsg.innerHTML = '🌟 МГНОВЕННАЯ ПОБЕДА! Энергомост построен! 🌟';
     }
@@ -478,27 +634,54 @@
         adminStatusMsg.innerHTML = '🔋 +50 мегаватт добавлено!';
     }
     
-    // Привязываем обработчики админ-кнопок
     document.getElementById('giveCorrectAnswerBtn').addEventListener('click', adminGiveCorrectAnswer);
     document.getElementById('instaWinsBtn').addEventListener('click', adminInstantWin);
     document.getElementById('addLivesBtn').addEventListener('click', adminAddLife);
     document.getElementById('addPointsBtn').addEventListener('click', adminAddPoints);
-    adminCloseBtn.addEventListener('click', closeAdminModal);
-    adminModal.addEventListener('click', (e) => {
-        if(e.target === adminModal) closeAdminModal();
-    });
     
     // ======================== ОСНОВНАЯ ИГРОВАЯ МЕХАНИКА ========================
-    function randInt(min, max) { 
-        return Math.floor(Math.random() * (max - min + 1)) + min; 
+    function getTaskByProgress() {
+        let availableTasks = [];
+        
+        if (correctCount < 10) {
+            availableTasks = TASKS_LEVEL_1.filter(task => !usedTasks.includes(task));
+        } else if (correctCount < 22) {
+            availableTasks = TASKS_LEVEL_2.filter(task => !usedTasks.includes(task));
+        } else {
+            availableTasks = TASKS_LEVEL_3.filter(task => !usedTasks.includes(task));
+        }
+        
+        if (availableTasks.length === 0) {
+            if (correctCount < 10) availableTasks = [...TASKS_LEVEL_1];
+            else if (correctCount < 22) availableTasks = [...TASKS_LEVEL_2];
+            else availableTasks = [...TASKS_LEVEL_3];
+        }
+        
+        const randomIndex = Math.floor(Math.random() * availableTasks.length);
+        const task = availableTasks[randomIndex];
+        usedTasks.push(task);
+        
+        return {
+            title: task.title,
+            equation: task.eq,
+            question: task.question,
+            correctAnswer: task.correct,
+            hint: task.hint,
+            level: task.level
+        };
     }
     
     function updateUI() {
         bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
-    }
-    
-    function getRandomProblem() {
-        return { ...TASKS_LIBRARY[Math.floor(Math.random() * TASKS_LIBRARY.length)] };
+        
+        let levelText = "";
+        if (correctCount < 10) levelText = "УРОВЕНЬ 1 (ЛЕГКИЙ)";
+        else if (correctCount < 22) levelText = "УРОВЕНЬ 2 (СРЕДНИЙ)";
+        else levelText = "УРОВЕНЬ 3 (СЛОЖНЫЙ)";
+        
+        if (!victoryFlag && gameActive && gameReady) {
+            messageDiv.innerHTML = `📊 ${levelText} | Мост ${correctCount}/${TARGET_CORRECT}`;
+        }
     }
     
     function generateOptions(correct) {
@@ -519,7 +702,7 @@
     }
     
     function handleAnswer(selectedVal) {
-        if(!gameActive || waitForAnswer || victoryFlag) return;
+        if(!gameActive || waitForAnswer || victoryFlag || !gameReady) return;
         const isCorrect = (selectedVal === currentProblem.correctAnswer);
         if(isCorrect) {
             let points = 10;
@@ -548,22 +731,21 @@
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
         nextTimer = setTimeout(() => { 
-            if(gameActive && !victoryFlag && stability > 0) loadNewChallenge(); 
+            if(gameActive && !victoryFlag && stability > 0 && gameReady) loadNewChallenge(); 
             nextTimer = null; 
         }, 1300);
         drawPowerSystem();
     }
     
     function loadNewChallenge() {
-        if(!gameActive || victoryFlag) return;
+        if(!gameActive || victoryFlag || !gameReady) return;
         if(nextTimer) clearTimeout(nextTimer);
         waitForAnswer = false;
-        currentProblem = getRandomProblem();
+        currentProblem = getTaskByProgress();
         optionsArray = generateOptions(currentProblem.correctAnswer);
-        eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.eq}`;
+        eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.equation}`;
         questionDisplay.innerHTML = currentProblem.question;
         renderAnswerButtons();
-        messageDiv.innerHTML = `💡 ${currentProblem.hint}`;
         drawPowerSystem();
     }
     
@@ -578,6 +760,8 @@
             else if(currentProblem.title.includes("СОЕДИНЕНИЕ")) suffix = " Ω";
             else if(currentProblem.title.includes("КПД")) suffix = " Вт";
             else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
+            else if(currentProblem.title.includes("КОНДЕНСАТОР")) suffix = " мкФ";
+            else if(currentProblem.title.includes("ЭНЕРГИЯ")) suffix = " Дж";
             btn.innerText = `${opt}${suffix}`;
             btn.addEventListener('click', (e) => { 
                 e.stopPropagation(); 
@@ -597,7 +781,7 @@
         gameActive = false; 
         waitForAnswer = true; 
         if(nextTimer) clearTimeout(nextTimer); 
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД СИЯЕТ! ✨🏆<br>Счёт: ${score} МВт.`; 
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ✨🏆<br>Счёт: ${score} МВт.`; 
         drawVictoryScene(); 
     }
     
@@ -606,7 +790,7 @@
         gameActive = false; 
         waitForAnswer = true; 
         if(nextTimer) clearTimeout(nextTimer); 
-        messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост рухнул... Вы дошли до ${correctCount}/15. Перезапустите. 💥`; 
+        messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост рухнул... Вы дошли до ${correctCount}/30. Перезапустите. 💥`; 
         drawGameOverVisual(); 
     }
     
@@ -618,14 +802,21 @@
         gameActive = true;
         victoryFlag = false;
         waitForAnswer = false;
+        usedTasks = [];
         scoreSpan.innerText = "0";
         livesSpan.innerText = "3";
         updateUI();
-        loadNewChallenge();
+        if(gameReady && ALL_TASKS.length > 0) {
+            loadNewChallenge();
+        } else {
+            eqDisplay.innerHTML = "Загрузка задач...";
+            questionDisplay.innerHTML = "Пожалуйста, подождите";
+            messageDiv.innerHTML = "⏳ Ожидание загрузки задач с GitHub...";
+        }
         drawPowerSystem();
     }
     
-    // ======================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ (canvas) ========================
+    // ======================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ========================
     function drawPowerSystem() { 
         ctx.clearRect(0,0,CANVAS_W,CANVAS_H); 
         ctx.fillStyle="#121f1c"; 
@@ -723,29 +914,18 @@
         drawPowerSystem(); 
     }
     
-    // ======================== FIREBASE АВТОРИЗАЦИЯ ========================
+    // ======================== АВТОРИЗАЦИЯ И ЗАПУСК ========================
     auth.signInAnonymously().catch(error => {
         console.error("Ошибка анонимного входа:", error);
-        userIdSpan.innerText = "Ошибка входа";
     });
     
-    auth.onAuthStateChanged(user => {
-        if(user) {
-            userIdSpan.innerText = user.uid.substring(0, 12) + "...";
-        } else {
-            userIdSpan.innerText = "Нет входа";
-        }
-    });
-    
-    // ======================== ЗАПУСК ========================
     document.getElementById('restartGame').addEventListener('click', () => restart());
     document.getElementById('restartGame').addEventListener('touchstart', (e) => { 
         e.preventDefault(); 
         restart(); 
     });
     
-    // Запуск игры
-    restart();
+    fetchTasksFromGitHub();
 </script>
 </body>
 </html>
