@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Энергомост: Математика энергетика | Скрытый пульт</title>
+    <title>Энергомост: Математика энергетика | Мультиплеер</title>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         * {
             user-select: none;
@@ -82,7 +83,7 @@
             color: #e2f5e8;
             font-weight: bold;
         }
-        .score-box, .lives-box, .level-box, .progress-box, .diff-box, .user-box {
+        .score-box, .lives-box, .progress-box, .user-box {
             background: #00000066;
             padding: 6px 18px;
             border-radius: 40px;
@@ -92,15 +93,15 @@
             letter-spacing: 1px;
             cursor: pointer;
         }
-        .score-box span:first-child, .lives-box span:first-child, .level-box span:first-child, .progress-box span:first-child, .diff-box span:first-child {
+        .score-box span:first-child, .lives-box span:first-child, .progress-box span:first-child, .user-box span:first-child {
             color: #ffcd7e;
         }
-        .restart-btn {
+        .restart-btn, .create-game-btn, .join-game-btn {
             background: #ff914d;
             border: none;
             font-family: inherit;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 0.9rem;
             padding: 6px 18px;
             border-radius: 40px;
             color: #1e2a1c;
@@ -108,14 +109,22 @@
             transition: 0.1s linear;
             box-shadow: 0 3px 0 #a33f00;
         }
-        .restart-btn:active {
+        .create-game-btn {
+            background: #4caf50;
+            box-shadow: 0 3px 0 #2e7d32;
+        }
+        .join-game-btn {
+            background: #2196f3;
+            box-shadow: 0 3px 0 #0b5e9e;
+        }
+        .restart-btn:active, .create-game-btn:active, .join-game-btn:active {
             transform: translateY(2px);
         }
         .message-area {
             background: #071510;
             padding: 12px 16px;
             border-radius: 32px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             text-align: center;
             margin-top: 14px;
             color: #c6ffc1;
@@ -209,6 +218,35 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .multiplayer-panel {
+            background: #0b1815cc;
+            backdrop-filter: blur(4px);
+            padding: 15px;
+            border-radius: 32px;
+            margin-bottom: 15px;
+        }
+        .game-code-input {
+            background: #1f3a33;
+            border: 2px solid #5f9e72;
+            border-radius: 40px;
+            padding: 10px 15px;
+            color: #ffdfa5;
+            font-size: 1rem;
+            font-family: monospace;
+            text-align: center;
+            width: 150px;
+        }
+        .players-list {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #aaffcc;
+        }
+        .teacher-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
         @media (max-width: 780px) {
             .game-layout { flex-direction: column; }
             .answer-btn { padding: 10px 5px; font-size: 1.2rem; }
@@ -220,6 +258,21 @@
 <body>
 <div class="game-wrapper">
     <div class="game-container">
+        <div class="multiplayer-panel" id="multiplayerPanel">
+            <div id="teacherControls" style="display:none;">
+                <div class="teacher-controls">
+                    <button class="create-game-btn" id="createGameBtn">🎮 СОЗДАТЬ ИГРУ</button>
+                    <span id="gameCodeDisplay" style="background:#00000066; padding:6px 15px; border-radius:40px; font-family:monospace; font-weight:bold;"></span>
+                    <button class="restart-btn" id="startGameBtn" style="display:none;">🚀 НАЧАТЬ ИГРУ</button>
+                </div>
+                <div class="players-list" id="playersList">👥 Ожидание игроков...</div>
+            </div>
+            <div id="studentControls" style="display:none;">
+                <input type="text" id="joinGameInput" class="game-code-input" placeholder="Код игры" maxlength="6">
+                <button class="join-game-btn" id="joinGameBtn">🔌 ПРИСОЕДИНИТЬСЯ</button>
+                <div id="gameStatus"></div>
+            </div>
+        </div>
         <div class="game-layout">
             <div class="canvas-area">
                 <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
@@ -239,9 +292,8 @@
         <div class="info-panel">
             <div class="score-box"><span>🔋 МЕГАВАТТЫ</span><span id="scoreValue">0</span></div>
             <div class="lives-box"><span>⚡ СТАБИЛЬНОСТЬ</span><span id="livesValue">3</span></div>
-            <div class="diff-box"><span>📊 СЛОЖНОСТЬ</span><span id="difficultyValue">0%</span></div>
             <div class="progress-box"><span>🏗️ ЭНЕРГОМОСТ</span><span id="bridgeProgress">0/15</span></div>
-            <div class="user-box"><span>👤 ID</span><span id="userIdDisplay">Не авторизован</span></div>
+            <div class="user-box"><span>👤 РОЛЬ</span><span id="roleDisplay">Не авторизован</span></div>
             <button class="restart-btn" id="restartGame">⟳ ПЕРЕЗАПУСК</button>
         </div>
     </div>
@@ -259,12 +311,12 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.database();
 
     // ======================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ========================
-    let TASKS_LIBRARY = [];       // Массив задач с GitHub
-    let gameReady = false;         // Флаг готовности игры (загружены задачи)
+    let TASKS_LIBRARY = [];
+    let gameReady = false;
     let correctCount = 0;
-    let difficulty = 0;
     let gameActive = true;
     let victoryFlag = false;
     let score = 0;
@@ -274,6 +326,13 @@
     let waitForAnswer = false;
     let nextTimer = null;
     const TARGET_CORRECT = 15;
+    
+    // Мультиплеер переменные
+    let currentGameId = null;
+    let isTeacher = false;
+    let isPlayer = false;
+    let playerId = null;
+    let gameStarted = false;
 
     // DOM элементы
     const canvas = document.getElementById('powerCanvas');
@@ -282,61 +341,49 @@
     canvas.height = 420;
     const scoreSpan = document.getElementById('scoreValue');
     const livesSpan = document.getElementById('livesValue');
-    const difficultySpan = document.getElementById('difficultyValue');
     const bridgeProgressSpan = document.getElementById('bridgeProgress');
     const messageDiv = document.getElementById('gameMessage');
     const eqDisplay = document.getElementById('eqDisplay');
     const questionDisplay = document.getElementById('questionDisplay');
     const answersContainer = document.getElementById('answersContainer');
-    const userIdSpan = document.getElementById('userIdDisplay');
+    const roleDisplay = document.getElementById('roleDisplay');
 
-    // ======================== ЗАГРУЗКА ЗАДАЧ С GITHUB (ТОЛЬКО ОТСЮДА) ========================
+    // ======================== ЗАГРУЗКА ЗАДАЧ ========================
     const GITHUB_TASKS_URL = "https://raw.githubusercontent.com/mihail245/Electro-tetris/refs/heads/main/tasks.json";
 
-    // Создаём и показываем оверлей загрузки
     const loadingOverlay = document.createElement('div');
     loadingOverlay.className = 'loading-overlay';
-    loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач с GitHub...</div><div style="font-size: 0.8rem;">${GITHUB_TASKS_URL}</div>`;
+    loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач с GitHub...</div>`;
     document.body.appendChild(loadingOverlay);
 
     async function fetchTasksFromGitHub() {
         try {
-            console.log("Начинаем загрузку задач с GitHub...");
             const response = await fetch(GITHUB_TASKS_URL, { cache: "no-store" });
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            
             if (Array.isArray(data) && data.length > 0) {
                 TASKS_LIBRARY = data;
-                console.log(`✅ Успешно загружено ${TASKS_LIBRARY.length} задач с GitHub`);
-                messageDiv.innerHTML = `✅ Загружено ${TASKS_LIBRARY.length} задач с GitHub. Секретный жест: 5 кликов по счёту.`;
+                messageDiv.innerHTML = `✅ Загружено ${TASKS_LIBRARY.length} задач. Ожидание создания/присоединения к игре.`;
                 gameReady = true;
-                // Плавно убираем оверлей
                 loadingOverlay.style.opacity = '0';
                 setTimeout(() => {
                     if(loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
                 }, 500);
-                // Запускаем игру
-                startGameAfterLoad();
+                checkAuthAndShowRole();
             } else {
-                throw new Error("Файл не содержит массива задач");
+                throw new Error("Нет задач");
             }
         } catch (error) {
-            console.error("Критическая ошибка загрузки задач:", error);
-            loadingOverlay.innerHTML = `<div style="color: #ff8866;">❌ ОШИБКА ЗАГРУЗКИ ЗАДАЧ</div>
-                                        <div style="font-size: 1rem; margin-top: 10px;">${error.message}</div>
-                                        <div style="font-size: 0.8rem; margin-top: 20px;">Проверьте ссылку: ${GITHUB_TASKS_URL}</div>
-                                        <button id="reloadBtn" style="margin-top: 30px; padding: 10px 25px; background: #ffaa44; border: none; border-radius: 40px; font-weight: bold; cursor: pointer;">🔄 ПОВТОРИТЬ</button>`;
+            loadingOverlay.innerHTML = `<div style="color: #ff8866;">❌ ОШИБКА ЗАГРУЗКИ</div><div>${error.message}</div><button id="reloadBtn" style="margin-top:30px;padding:10px 25px;background:#ffaa44;border:none;border-radius:40px;cursor:pointer;">🔄 ПОВТОРИТЬ</button>`;
             const reloadBtn = document.getElementById('reloadBtn');
             if(reloadBtn) reloadBtn.onclick = () => location.reload();
             gameReady = false;
         }
     }
 
-    // ======================== ИГРОВЫЕ ФУНКЦИИ (ЗАВИСЯТ ОТ TASKS_LIBRARY) ========================
+    // ======================== ИГРОВЫЕ ФУНКЦИИ (БЕЗ СЛОЖНОСТИ) ========================
     function getRandomProblem() {
         if (!TASKS_LIBRARY.length) {
-            // Теоретически сюда не попадём, но на всякий случай
             return {
                 title: "⚠️ ОШИБКА",
                 equation: "Нет задач",
@@ -356,20 +403,14 @@
     }
 
     function generateOptions(correct) {
+        // Простая генерация без влияния сложности
         let opts = new Set();
         opts.add(correct);
-        let range = Math.max(2, Math.floor(correct * (0.15 + difficulty / 180)));
-        range = Math.min(range, Math.floor(correct * 0.6) || 3);
-        if(range < 1) range = 2;
         while(opts.size < 4) {
-            let delta = Math.floor(Math.random() * (range * 2 + 1)) - range;
+            let delta = Math.floor(Math.random() * 21) - 10;
             let cand = correct + delta;
-            if(cand < 1) cand = correct + Math.floor(Math.random() * 5) + 2;
+            if(cand < 1) cand = correct + Math.floor(Math.random() * 10) + 1;
             if(cand > 0 && cand < 50000) opts.add(cand);
-            if(opts.size < 3) {
-                let extra = correct + (Math.floor(Math.random() * 15) + 3);
-                if(extra > 0 && extra !== correct) opts.add(extra);
-            }
         }
         let arr = Array.from(opts);
         for(let i = arr.length - 1; i > 0; i--) {
@@ -381,159 +422,49 @@
 
     function updateUI() {
         bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
-        difficultySpan.innerText = `${Math.floor(difficulty)}%`;
     }
 
-    // --- Админ-панель (секретный жест 5 кликов) ---
-    let tapCount = 0;
-    let tapTimer = null;
-    let adminModal = null;
-    let isAdminMode = false;
-    const ALLOWED_ADMIN_UIDS = [
-        "zUm98N8mzoN5oq4aeCZo6476lWJ2",
-        "2uC9V5MBW0Sd00GYSmGVoIS4SWI3",
-        "8QTK0kWzJwQjY2rEgAQFxQcJFdE2"
-    ];
-
-    function isAllowedAdmin(uid) {
-        return ALLOWED_ADMIN_UIDS.includes(uid);
-    }
-
-    function createAdminModal() {
-        if(document.getElementById('secretAdminPanel')) return;
-        const div = document.createElement('div');
-        div.id = 'secretAdminPanel';
-        div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:10001;display:none;justify-content:center;align-items:center;font-family:monospace;';
-        div.innerHTML = `
-            <div style="background:#0e1a1f;border:2px solid #ffaa44;border-radius:48px;padding:25px 20px;width:340px;text-align:center;color:#eee;">
-                <h3>⚡ СКРЫТАЯ АДМИН-ПАНЕЛЬ ⚡</h3>
-                <input type="text" id="adminSecretUid" placeholder="Ваш Firebase UID" style="width:90%;padding:12px;margin:15px 0;background:#1f3a33;border:1px solid #8bc34a;border-radius:60px;color:#ffecb3;text-align:center">
-                <div><button id="adminSecretAuthBtn" style="background:#3a7a5a;border:none;padding:10px 20px;margin:5px;border-radius:40px;color:white;font-weight:bold;cursor:pointer">🔑 Войти</button><button id="adminSecretCloseBtn" style="background:#aa3e2c;border:none;padding:10px 20px;margin:5px;border-radius:40px;cursor:pointer">✖️</button></div>
-                <div id="adminSecretActions" style="display:none;margin-top:15px">
-                    <button id="secretGiveCorrect">✅ ПРАВИЛЬНЫЙ ОТВЕТ</button><br>
-                    <button id="secretInstantWin">🏆 МГНОВЕННАЯ ПОБЕДА</button><br>
-                    <button id="secretAddLife">❤️ +1 СТАБИЛЬНОСТЬ</button><br>
-                    <button id="secretAddPoints">🔋 +50 МВт</button>
-                </div>
-                <div id="adminSecretStatus" style="font-size:0.8rem;margin-top:12px;color:#ffaa66"></div>
-            </div>
-        `;
-        document.body.appendChild(div);
-        adminModal = div;
-
-        document.getElementById('adminSecretAuthBtn').onclick = () => {
-            const enteredUid = document.getElementById('adminSecretUid').value.trim();
-            const currentUser = auth.currentUser;
-            if(!currentUser) { adminSecretMsg("⏳ Ожидание Firebase..."); return; }
-            if(currentUser.uid === enteredUid && isAllowedAdmin(currentUser.uid)) {
-                isAdminMode = true;
-                document.getElementById('adminSecretActions').style.display = 'block';
-                adminSecretMsg("✅ ДОСТУП РАЗРЕШЁН!");
-                messageDiv.innerHTML = "🔱 РЕЖИМ АДМИНИСТРАТОРА АКТИВЕН 🔱";
-            } else {
-                adminSecretMsg("❌ НЕВЕРНЫЙ UID ИЛИ НЕТ ПРАВ");
-                isAdminMode = false;
-            }
-        };
-        document.getElementById('adminSecretCloseBtn').onclick = () => { adminModal.style.display = 'none'; };
-        document.getElementById('secretGiveCorrect').onclick = () => {
-            if(!isAdminMode) { adminSecretMsg("Нет прав"); return; }
-            if(!gameActive || victoryFlag || waitForAnswer || !currentProblem) { adminSecretMsg("Сейчас нельзя"); return; }
-            handleAnswer(currentProblem.correctAnswer);
-            adminSecretMsg("✅ Выдан правильный ответ");
-        };
-        document.getElementById('secretInstantWin').onclick = () => {
-            if(!isAdminMode) { adminSecretMsg("Нет прав"); return; }
-            if(victoryFlag) { adminSecretMsg("Уже победа"); return; }
-            if(nextTimer) clearTimeout(nextTimer);
-            waitForAnswer = false;
-            while(correctCount < TARGET_CORRECT) {
-                correctCount++;
-                score += 10 + Math.floor(difficulty/5);
-                difficulty = (correctCount / TARGET_CORRECT) * 100;
-            }
-            scoreSpan.innerText = score;
-            updateUI();
-            victoryGame();
-            drawPowerSystem();
-            adminSecretMsg("🌟 Мгновенная победа!");
-        };
-        document.getElementById('secretAddLife').onclick = () => {
-            if(!isAdminMode) { adminSecretMsg("Нет прав"); return; }
-            if(!gameActive || victoryFlag) { adminSecretMsg("Игра завершена"); return; }
-            stability = Math.min(5, stability+1);
-            livesSpan.innerText = stability;
-            messageDiv.innerHTML = "❤️ Админ восстановил стабильность +1";
-            drawPowerSystem();
-            adminSecretMsg("❤️ +1 стабильность");
-        };
-        document.getElementById('secretAddPoints').onclick = () => {
-            if(!isAdminMode) { adminSecretMsg("Нет прав"); return; }
-            if(!gameActive || victoryFlag) { adminSecretMsg("Игра завершена"); return; }
-            score += 50;
-            scoreSpan.innerText = score;
-            messageDiv.innerHTML = "🔋 Админ начислил +50 МВт";
-            drawPowerSystem();
-            adminSecretMsg("🔋 +50 МВт");
-        };
-    }
-
-    function adminSecretMsg(msg) {
-        let el = document.getElementById('adminSecretStatus');
-        if(el) { el.innerHTML = msg; setTimeout(()=>{ if(el) el.innerHTML=''; }, 2000); }
-    }
-
-    function openSecretAdmin() {
-        if(!adminModal) createAdminModal();
-        adminModal.style.display = 'flex';
-    }
-
-    // Жест 5 тапов по счёту
-    const scoreBoxElement = document.querySelector('.score-box');
-    function onSecretTap() {
-        if(tapTimer) clearTimeout(tapTimer);
-        tapCount++;
-        tapTimer = setTimeout(() => { tapCount = 0; tapTimer = null; }, 800);
-        if(tapCount >= 5) {
-            tapCount = 0;
-            if(tapTimer) clearTimeout(tapTimer);
-            openSecretAdmin();
+    // Обновление прогресса в Firebase
+    function updateFirebaseProgress() {
+        if (currentGameId && playerId) {
+            db.ref(`games/${currentGameId}/players/${playerId}`).update({
+                score: score,
+                correctCount: correctCount,
+                stability: stability,
+                timestamp: Date.now()
+            });
         }
     }
-    if(scoreBoxElement) {
-        scoreBoxElement.addEventListener('click', onSecretTap);
-        scoreBoxElement.addEventListener('touchstart', (e) => { e.preventDefault(); onSecretTap(); });
-    }
 
-    // --- Игровая логика ---
     function handleAnswer(selectedVal) {
-        if(!gameActive || waitForAnswer || victoryFlag) return;
+        if(!gameActive || waitForAnswer || victoryFlag || !gameStarted) return;
         const isCorrect = (selectedVal === currentProblem.correctAnswer);
         if(isCorrect) {
-            let points = 10 + Math.floor(difficulty / 5);
-            score += points; scoreSpan.innerText = score;
+            let points = 10;
+            score += points;
+            scoreSpan.innerText = score;
             correctCount++;
-            let newDifficulty = (correctCount / TARGET_CORRECT) * 100;
-            difficulty = Math.min(100, newDifficulty);
             updateUI();
-            messageDiv.innerHTML = `✅ ВЕРНО! +${points} МВт | Сложность ↑ ${Math.floor(difficulty)}% | Мост ${correctCount}/${TARGET_CORRECT}`;
+            updateFirebaseProgress();
+            messageDiv.innerHTML = `✅ ВЕРНО! +${points} МВт | Мост ${correctCount}/${TARGET_CORRECT}`;
             drawCorrectFlashEffect();
             if(correctCount >= TARGET_CORRECT) { victoryGame(); drawPowerSystem(); return; }
         } else {
             stability--;
             livesSpan.innerText = stability;
+            updateFirebaseProgress();
             messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint} ❌`;
             drawWrongFlashEffect();
             if(stability <= 0) { gameDefeat(); drawPowerSystem(); return; }
         }
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        nextTimer = setTimeout(() => { if(gameActive && !victoryFlag && stability > 0) loadNewChallenge(); nextTimer = null; }, 1300);
+        nextTimer = setTimeout(() => { if(gameActive && !victoryFlag && stability > 0 && gameStarted) loadNewChallenge(); nextTimer = null; }, 1300);
         drawPowerSystem();
     }
 
     function loadNewChallenge() {
-        if(!gameActive || victoryFlag) return;
+        if(!gameActive || victoryFlag || !gameStarted) return;
         if(nextTimer) clearTimeout(nextTimer);
         waitForAnswer = false;
         currentProblem = getRandomProblem();
@@ -541,8 +472,7 @@
         eqDisplay.innerHTML = `${currentProblem.title}<br>${currentProblem.equation}`;
         questionDisplay.innerHTML = currentProblem.question;
         renderAnswerButtons();
-        let complexityBar = "▰".repeat(Math.floor(difficulty/10)) + "▱".repeat(10 - Math.floor(difficulty/10));
-        messageDiv.innerHTML = `📈 Сложность: ${Math.floor(difficulty)}% ${complexityBar} | ${currentProblem.hint}`;
+        messageDiv.innerHTML = `💡 ${currentProblem.hint}`;
         drawPowerSystem();
     }
 
@@ -558,8 +488,8 @@
             else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
             else if(currentProblem.title.includes("ЭНЕРГИЯ")) suffix = " кВт·ч";
             btn.innerText = `${opt}${suffix}`;
-            btn.addEventListener('click', (e) => { e.stopPropagation(); if(!waitForAnswer && gameActive && !victoryFlag) handleAnswer(opt); });
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); if(!waitForAnswer && gameActive && !victoryFlag) handleAnswer(opt); });
+            btn.addEventListener('click', (e) => { e.stopPropagation(); if(!waitForAnswer && gameActive && !victoryFlag && gameStarted) handleAnswer(opt); });
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); if(!waitForAnswer && gameActive && !victoryFlag && gameStarted) handleAnswer(opt); });
             answersContainer.appendChild(btn);
         });
     }
@@ -570,8 +500,11 @@
         gameActive = false;
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД СИЯЕТ! ✨🏆<br>Сложность покорена: ${Math.floor(difficulty)}% | Счёт: ${score} МВт.`;
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОМОСТ ПОСТРОЕН! ГОРОД СИЯЕТ! ✨🏆<br>Счёт: ${score} МВт.`;
         drawVictoryScene();
+        if (currentGameId && playerId) {
+            db.ref(`games/${currentGameId}/players/${playerId}`).update({ victory: true });
+        }
     }
 
     function gameDefeat() {
@@ -579,21 +512,158 @@
         gameActive = false;
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост рухнул... Вы дошли до ${correctCount}/15. Перезапустите. 💥`;
+        messageDiv.innerHTML = `💥 КОЛЛАПС ЭНЕРГОСЕТИ! Энергомост рухнул... Вы дошли до ${correctCount}/15. 💥`;
         drawGameOverVisual();
+        if (currentGameId && playerId) {
+            db.ref(`games/${currentGameId}/players/${playerId}`).update({ defeated: true });
+        }
     }
 
-    function restart() {
+    function restartGame() {
         if(nextTimer) clearTimeout(nextTimer);
-        score = 0; stability = 3; correctCount = 0; difficulty = 0;
+        score = 0; stability = 3; correctCount = 0;
         gameActive = true; victoryFlag = false; waitForAnswer = false;
         scoreSpan.innerText = "0"; livesSpan.innerText = "3";
         updateUI();
-        loadNewChallenge();
+        if (gameStarted) loadNewChallenge();
         drawPowerSystem();
+        if (currentGameId && playerId) {
+            db.ref(`games/${currentGameId}/players/${playerId}`).update({
+                score: 0, correctCount: 0, stability: 3, victory: false, defeated: false
+            });
+        }
     }
 
-    // Визуальные эффекты
+    // ======================== МУЛЬТИПЛЕЕРНЫЕ ФУНКЦИИ ========================
+    function generateGameCode() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    async function createGame() {
+        if (!gameReady) {
+            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
+            return;
+        }
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const gameCode = generateGameCode();
+        currentGameId = gameCode;
+        isTeacher = true;
+        isPlayer = false;
+        
+        const gameRef = db.ref(`games/${gameCode}`);
+        await gameRef.set({
+            code: gameCode,
+            teacherId: user.uid,
+            createdAt: Date.now(),
+            started: false,
+            players: {}
+        });
+        
+        playerId = user.uid;
+        await gameRef.child(`players/${playerId}`).set({
+            name: "Учитель",
+            isTeacher: true,
+            score: 0,
+            correctCount: 0,
+            stability: 3,
+            joinedAt: Date.now()
+        });
+        
+        document.getElementById('gameCodeDisplay').innerHTML = `🎮 КОД: ${gameCode}`;
+        document.getElementById('startGameBtn').style.display = 'inline-block';
+        messageDiv.innerHTML = `✅ Игра создана! Код: ${gameCode}. Поделитесь им с учениками.`;
+        roleDisplay.innerText = "👨‍🏫 УЧИТЕЛЬ";
+        
+        // Слушаем игроков
+        db.ref(`games/${gameCode}/players`).on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            const playersList = Object.entries(players)
+                .filter(([id, p]) => !p.isTeacher)
+                .map(([id, p]) => `👨‍🎓 ${p.name || id.substring(0,6)} (${p.correctCount || 0}/15)`)
+                .join('<br>') || "👥 Ожидание игроков...";
+            document.getElementById('playersList').innerHTML = `👥 ИГРОКИ:<br>${playersList}`;
+        });
+    }
+    
+    async function startGameForAll() {
+        if (!currentGameId || !isTeacher) return;
+        gameStarted = true;
+        await db.ref(`games/${currentGameId}`).update({ started: true });
+        messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Все могут отвечать!";
+        restartGame();
+    }
+    
+    async function joinGame() {
+        if (!gameReady) {
+            messageDiv.innerHTML = "⏳ Загрузка задач, подождите...";
+            return;
+        }
+        const gameCode = document.getElementById('joinGameInput').value.toUpperCase();
+        if (!gameCode) return;
+        
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const gameRef = db.ref(`games/${gameCode}`);
+        const snapshot = await gameRef.once('value');
+        const game = snapshot.val();
+        
+        if (!game) {
+            messageDiv.innerHTML = "❌ Игра не найдена! Проверьте код.";
+            return;
+        }
+        
+        currentGameId = gameCode;
+        isTeacher = false;
+        isPlayer = true;
+        playerId = user.uid;
+        
+        await gameRef.child(`players/${playerId}`).set({
+            name: "Ученик",
+            isTeacher: false,
+            score: 0,
+            correctCount: 0,
+            stability: 3,
+            joinedAt: Date.now()
+        });
+        
+        roleDisplay.innerText = "👨‍🎓 УЧЕНИК";
+        messageDiv.innerHTML = `✅ Присоединились к игре ${gameCode}! Ожидайте начала.`;
+        
+        // Слушаем старт игры
+        db.ref(`games/${gameCode}/started`).on('value', (snapshot) => {
+            const started = snapshot.val();
+            if (started && !gameStarted) {
+                gameStarted = true;
+                messageDiv.innerHTML = "🚀 ИГРА НАЧАЛАСЬ! Удачи!";
+                restartGame();
+            }
+        });
+        
+        // Слушаем свой прогресс (синхронизация)
+        db.ref(`games/${gameCode}/players/${playerId}`).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && gameStarted && !isTeacher) {
+                // Синхронизируем состояние с сервером (если нужно)
+            }
+        });
+    }
+    
+    function checkAuthAndShowRole() {
+        const user = auth.currentUser;
+        if (user) {
+            document.getElementById('teacherControls').style.display = 'block';
+            document.getElementById('studentControls').style.display = 'flex';
+            document.getElementById('studentControls').style.gap = '10px';
+            document.getElementById('studentControls').style.flexWrap = 'wrap';
+            document.getElementById('studentControls').style.alignItems = 'center';
+            roleDisplay.innerText = "👤 ВЫБЕРИТЕ РЕЖИМ";
+        }
+    }
+    
+    // ======================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ========================
     function drawPowerSystem() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.fillStyle="#121f1c"; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -621,20 +691,20 @@
     function drawGameOverVisual(){ drawPowerSystem(); }
     function drawVictoryScene(){ drawPowerSystem(); }
 
-    function startGameAfterLoad() {
-        restart();
-        // Подписываем кнопку перезапуска
-        document.getElementById('restartGame').addEventListener('click', () => restart());
-        document.getElementById('restartGame').addEventListener('touchstart', (e) => { e.preventDefault(); restart(); });
-    }
-
     // ======================== ИНИЦИАЛИЗАЦИЯ ========================
     auth.signInAnonymously().catch(error => console.error("Ошибка анонимного входа:", error));
     auth.onAuthStateChanged(user => {
-        if(user) userIdSpan.innerText = user.uid.substring(0, 12) + "...";
-        else userIdSpan.innerText = "Не авторизован";
+        if(user) {
+            console.log("Авторизован:", user.uid);
+            if(gameReady) checkAuthAndShowRole();
+        }
     });
-    // Начинаем загрузку задач с GitHub
+    
+    document.getElementById('createGameBtn').addEventListener('click', createGame);
+    document.getElementById('startGameBtn').addEventListener('click', startGameForAll);
+    document.getElementById('joinGameBtn').addEventListener('click', joinGame);
+    document.getElementById('restartGame').addEventListener('click', () => { if(gameStarted) restartGame(); });
+    
     fetchTasksFromGitHub();
 </script>
 </body>
