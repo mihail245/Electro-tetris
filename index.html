@@ -264,6 +264,9 @@
         .close-admin {
             background: #aa3e2c;
         }
+        .close-game-btn {
+            background: #aa3e2c;
+        }
         .admin-status {
             font-size: 0.8rem;
             margin-top: 12px;
@@ -277,6 +280,7 @@
             margin-bottom: 20px;
             border-bottom: 1px solid #5a9e6e;
             padding-bottom: 10px;
+            flex-wrap: wrap;
         }
         .admin-tab {
             background: #1f3a33;
@@ -370,6 +374,37 @@
             .admin-tabs { flex-wrap: wrap; }
             .health-box img { width: 32px; height: 32px; }
         }
+        
+        /* Затемнение для закрытой игры */
+        .game-closed-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(15px);
+            z-index: 20000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+            color: #ff8866;
+            font-family: monospace;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+        }
+        .game-closed-overlay .closed-text {
+            font-size: 3rem;
+            color: #ff4444;
+            text-shadow: 0 0 10px rgba(255,0,0,0.5);
+        }
+        .game-closed-overlay .closed-subtext {
+            font-size: 1.2rem;
+            color: #ffaa66;
+        }
     </style>
 </head>
 <body>
@@ -413,6 +448,7 @@
         <div class="admin-tabs">
             <div class="admin-tab" data-tab="auth">🔐 ВХОД</div>
             <div class="admin-tab" data-tab="actions" style="display:none;">🎮 ДЕЙСТВИЯ</div>
+            <div class="admin-tab" data-tab="settings" style="display:none;">⚙️ НАСТРОЙКИ</div>
             <div class="admin-tab" data-tab="logs" style="display:none;">📋 ЛОГИ</div>
         </div>
         
@@ -431,6 +467,12 @@
             <button id="addLivesBtn">❤️ +1 ЖИЗНЬ</button>
             <button id="addPointsBtn">🔋 +50 МВт</button>
             <div class="admin-status" id="adminStatusMsg"></div>
+        </div>
+        
+        <div id="tab-settings" class="admin-tab-content">
+            <button id="closeGameBtn" class="close-game-btn">🔒 ЗАКРЫТЬ ИГРУ</button>
+            <button id="openGameBtn" style="background:#4caf50; display:none;">🔓 ОТКРЫТЬ ИГРУ</button>
+            <div class="admin-status" id="settingsStatusMsg"></div>
         </div>
         
         <div id="tab-logs" class="admin-tab-content">
@@ -460,8 +502,8 @@
 
     // ======================== ПАРОЛИ АДМИНОВ ========================
     const ADMIN_PASSWORDS = {
-        "14881161": { name: "Админ", emoji: "👑", access: "full" },
-        "148867": { name: "Админ", emoji: "⭐", access: "actions_only" }
+        "14881161": { name: "Главный администратор", emoji: "👑", access: "full" },
+        "148867": { name: "Помощник", emoji: "⭐", access: "actions_only" }
     };
     
     // ======================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ========================
@@ -475,6 +517,7 @@
     let gameActive = true;
     let victoryFlag = false;
     let usedTasks = [];
+    let gameClosed = false; // Флаг, закрыта ли игра
     
     let score = 0;
     let health = 3;
@@ -504,6 +547,56 @@
     loadingOverlay.className = 'loading-overlay';
     loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач...</div>`;
     document.body.appendChild(loadingOverlay);
+    
+    // ======================== ПРОВЕРКА СТАТУСА ИГРЫ ========================
+    async function checkGameStatus() {
+        try {
+            const snapshot = await db.ref('admin/gameStatus').once('value');
+            const status = snapshot.val();
+            if (status && status.closed === true) {
+                gameClosed = true;
+                showGameClosedOverlay();
+            } else {
+                gameClosed = false;
+                hideGameClosedOverlay();
+            }
+        } catch (error) {
+            console.error("Ошибка проверки статуса игры:", error);
+        }
+    }
+    
+    function showGameClosedOverlay() {
+        if (document.getElementById('gameClosedOverlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'gameClosedOverlay';
+        overlay.className = 'game-closed-overlay';
+        overlay.innerHTML = `
+            <div class="closed-text">🔒 ИГРА ЗАКРЫТА 🔒</div>
+            <div class="closed-subtext">Администратор временно закрыл доступ</div>
+            <div style="font-size: 0.8rem; margin-top: 20px;">Попробуйте зайти позже</div>
+        `;
+        document.body.appendChild(overlay);
+        
+        // Блокируем кнопки ответов
+        if (answersContainer) {
+            answersContainer.style.pointerEvents = 'none';
+            answersContainer.style.opacity = '0.5';
+        }
+        // Блокируем кнопку перезапуска
+        const restartBtn = document.getElementById('restartGame');
+        if (restartBtn) restartBtn.disabled = true;
+    }
+    
+    function hideGameClosedOverlay() {
+        const overlay = document.getElementById('gameClosedOverlay');
+        if (overlay) overlay.remove();
+        if (answersContainer) {
+            answersContainer.style.pointerEvents = 'auto';
+            answersContainer.style.opacity = '1';
+        }
+        const restartBtn = document.getElementById('restartGame');
+        if (restartBtn) restartBtn.disabled = false;
+    }
     
     // ======================== ФУНКЦИЯ ОБНОВЛЕНИЯ ИКОНКИ ========================
     function updateHealthIcon() {
@@ -604,7 +697,7 @@
         ctx.stroke();
         
         // Искры
-        if (progress > 0 && !victoryFlag && health > 0) {
+        if (progress > 0 && !victoryFlag && health > 0 && !gameClosed) {
             for (let i = 0; i < 6; i++) {
                 const sparkX = 150 + (correctCount / TARGET_CORRECT) * 500 + Math.sin(Date.now() / 500 + i) * 4;
                 const sparkY = 170 + Math.cos(Date.now() / 400 + i) * 5;
@@ -650,6 +743,18 @@
             ctx.font = "14px monospace";
             ctx.fillStyle = '#ffaaaa';
             ctx.fillText("Провода оборваны", canvas.width/2 - 70, canvas.height/2 + 50);
+        }
+        
+        // Если игра закрыта админом
+        if (gameClosed && !victoryFlag) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = "bold 24px monospace";
+            ctx.fillStyle = '#ff6666';
+            ctx.fillText("🔒 ИГРА ЗАКРЫТА АДМИНИСТРАТОРОМ", canvas.width/2 - 220, canvas.height/2);
+            ctx.font = "14px monospace";
+            ctx.fillStyle = '#ffaa66';
+            ctx.fillText("Попробуйте зайти позже", canvas.width/2 - 90, canvas.height/2 + 50);
         }
         
         ctx.shadowBlur = 0;
@@ -719,6 +824,31 @@
         }
     }
     
+    // ======================== УПРАВЛЕНИЕ СТАТУСОМ ИГРЫ ========================
+    async function closeGame() {
+        if (!isAdminMode) return;
+        await db.ref('admin/gameStatus').set({ closed: true, closedBy: currentAdminName, closedAt: Date.now() });
+        gameClosed = true;
+        showGameClosedOverlay();
+        drawGame();
+        await addLogEntry('admin_action', `${currentAdminName} ЗАКРЫЛ игру`, { action: 'close_game' });
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта! Пользователи не могут зайти.';
+        document.getElementById('closeGameBtn').style.display = 'none';
+        document.getElementById('openGameBtn').style.display = 'inline-block';
+    }
+    
+    async function openGame() {
+        if (!isAdminMode) return;
+        await db.ref('admin/gameStatus').set({ closed: false });
+        gameClosed = false;
+        hideGameClosedOverlay();
+        drawGame();
+        await addLogEntry('admin_action', `${currentAdminName} ОТКРЫЛ игру`, { action: 'open_game' });
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔓 Игра открыта! Пользователи могут заходить.';
+        document.getElementById('closeGameBtn').style.display = 'inline-block';
+        document.getElementById('openGameBtn').style.display = 'none';
+    }
+    
     // ======================== ЗАГРУЗКА ЗАДАЧ ========================
     const GITHUB_TASKS_URL = "https://raw.githubusercontent.com/mihail245/Electro-tetris/refs/heads/main/tasks.json";
     
@@ -737,6 +867,7 @@
                 setTimeout(() => {
                     if(loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
                 }, 500);
+                await checkGameStatus();
                 restart();
             } else {
                 throw new Error("Нет задач или неверный формат");
@@ -754,7 +885,7 @@
     let tapCount = 0;
     let tapTimer = null;
     document.getElementById('secretTapArea')?.addEventListener('click', () => {
-        if(tapTimer) clearTimeout(tapTimer);
+        if(timer) clearTimeout(tapTimer);
         tapCount++;
         tapTimer = setTimeout(() => { tapCount = 0; }, 800);
         if(tapCount >= 5) { tapCount = 0; openAdminModal(); }
@@ -767,13 +898,16 @@
     const adminCloseBtn = document.getElementById('adminCloseBtn');
     const adminStatusMsg = document.getElementById('adminStatusMsg');
     const adminLoginMsg = document.getElementById('adminLoginMsg');
+    const settingsStatusMsg = document.getElementById('settingsStatusMsg');
     const actionsTab = document.querySelector('.admin-tab[data-tab="actions"]');
+    const settingsTab = document.querySelector('.admin-tab[data-tab="settings"]');
     const logsTab = document.querySelector('.admin-tab[data-tab="logs"]');
     
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
             if (tabId === 'logs' && currentAdminAccess !== 'full') return;
+            if (tabId === 'settings' && currentAdminAccess !== 'full') return;
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -788,7 +922,7 @@
         adminLoginMsg.innerHTML = 'Введите код администратора';
         adminLoginMsg.style.color = '#ffaa66';
         if (adminStatusMsg) adminStatusMsg.innerHTML = '';
-        // Показываем только вкладку входа
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '';
         document.querySelectorAll('.admin-tab').forEach(t => {
             if (t.dataset.tab !== 'auth') t.style.display = 'none';
         });
@@ -814,15 +948,24 @@
             adminLoginMsg.style.color = '#8bc34a';
             adminStatusMsg.innerHTML = `Добро пожаловать, ${adminInfo.name}! ⚡`;
             
-            // Показываем вкладки в зависимости от прав
             actionsTab.style.display = 'block';
             if (adminInfo.access === 'full') {
+                settingsTab.style.display = 'block';
                 logsTab.style.display = 'block';
             } else {
+                settingsTab.style.display = 'none';
                 logsTab.style.display = 'none';
             }
             
-            // Переключаем на вкладку действий
+            // Обновляем кнопки в настройках
+            if (gameClosed) {
+                document.getElementById('closeGameBtn').style.display = 'none';
+                document.getElementById('openGameBtn').style.display = 'inline-block';
+            } else {
+                document.getElementById('closeGameBtn').style.display = 'inline-block';
+                document.getElementById('openGameBtn').style.display = 'none';
+            }
+            
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
             actionsTab.classList.add('active');
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -842,6 +985,8 @@
     
     adminCloseBtn.addEventListener('click', closeAdminModal);
     document.getElementById('clearLogsBtn')?.addEventListener('click', clearLogs);
+    document.getElementById('closeGameBtn')?.addEventListener('click', closeGame);
+    document.getElementById('openGameBtn')?.addEventListener('click', openGame);
     
     async function adminGiveCorrectAnswer() {
         if(!isAdminMode) { adminStatusMsg.innerHTML = '⛔ Нет прав.'; return; }
@@ -926,14 +1071,14 @@
     
     function updateUI() {
         bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
-        if (!victoryFlag && gameActive && gameReady) {
+        if (!victoryFlag && gameActive && gameReady && !gameClosed) {
             messageDiv.innerHTML = `📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`;
         }
         drawGame();
     }
     
     function handleAnswer(selected) {
-        if(!gameActive || waitForAnswer || victoryFlag) return;
+        if(!gameActive || waitForAnswer || victoryFlag || gameClosed) return;
         const isCorrect = selected === currentProblem.correctAnswer;
         if(isCorrect) {
             score += 10;
@@ -952,14 +1097,14 @@
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
         nextTimer = setTimeout(() => {
-            if(gameActive && !victoryFlag && health > 0) loadNewChallenge();
+            if(gameActive && !victoryFlag && health > 0 && !gameClosed) loadNewChallenge();
             nextTimer = null;
         }, 1300);
         updateUI();
     }
     
     function loadNewChallenge() {
-        if(!gameActive || victoryFlag || !gameReady) return;
+        if(!gameActive || victoryFlag || !gameReady || gameClosed) return;
         if(nextTimer) clearTimeout(nextTimer);
         waitForAnswer = false;
         currentProblem = getTaskByProgress();
@@ -983,7 +1128,7 @@
             else if(currentProblem.title.includes("КПД")) suffix = " Вт";
             else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
             btn.innerText = `${opt}${suffix}`;
-            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag) handleAnswer(opt); };
+            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && !gameClosed) handleAnswer(opt); };
             answersContainer.appendChild(btn);
         });
     }
@@ -1006,6 +1151,7 @@
     }
     
     function restart() {
+        if(gameClosed) return;
         if(nextTimer) clearTimeout(nextTimer);
         score = 0;
         health = 3;
@@ -1023,7 +1169,7 @@
     
     // ======================== ЗАПУСК ========================
     auth.signInAnonymously().catch(console.error);
-    document.getElementById('restartGame').addEventListener('click', restart);
+    document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed) restart(); });
     fetchTasksFromGitHub();
 </script>
 </body>
