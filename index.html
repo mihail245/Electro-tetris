@@ -43,12 +43,6 @@
             transition: all 0.2s;
         }
 
-        /* Стиль для администратора */
-        .game-container.admin-mode {
-            border-bottom: 6px solid #ffaa44;
-            box-shadow: 0 0 20px rgba(255,170,68,0.3);
-        }
-
         .game-layout {
             display: flex;
             flex-wrap: wrap;
@@ -204,7 +198,7 @@
         .question-text {
             font-size: 1.2rem;
             margin-top: 12px;
-            background: #00000055;
+            background: #ffdfa5;
             padding: 8px;
             border-radius: 28px;
         }
@@ -371,22 +365,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Бейдж администратора */
-        .admin-badge {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: #ffaa44;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-family: monospace;
-            z-index: 9999;
-            border-left: 3px solid #ffaa44;
-            pointer-events: none;
-        }
-
         @media (max-width: 780px) {
             .game-layout { flex-direction: column; }
             .answer-btn { padding: 10px 5px; font-size: 1.2rem; }
@@ -431,7 +409,7 @@
 </head>
 <body>
 <div class="game-wrapper">
-    <div class="game-container" id="gameContainer">
+    <div class="game-container">
         <div class="game-layout">
             <div class="canvas-area">
                 <canvas id="powerCanvas" width="750" height="420" style="width:100%; height:auto; aspect-ratio:750/420"></canvas>
@@ -522,145 +500,7 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // ======================== СИСТЕМА ОПРЕДЕЛЕНИЯ АДМИНА (ПЕРВЫЙ ЗАХОД) ========================
-    let isAdminMode = false;
-    let currentAdminName = "";
-    let currentAdminAccess = "";
-    let currentUserId = null;
-    
-    // Функция для получения или создания ID пользователя
-    async function getOrCreateUserId() {
-        const user = auth.currentUser;
-        if (!user) return null;
-        
-        // Сначала проверяем, есть ли уже этот пользователь в базе
-        const snapshot = await db.ref('users/' + user.uid).once('value');
-        const userData = snapshot.val();
-        
-        if (userData) {
-            // Пользователь уже есть в базе
-            currentUserId = userData.id;
-            return userData.id;
-        } else {
-            // Новый пользователь - назначаем следующий ID
-            const counterSnapshot = await db.ref('counters/userId').once('value');
-            let nextId = counterSnapshot.val() || 0;
-            nextId++;
-            
-            // Сохраняем пользователя
-            await db.ref('users/' + user.uid).set({
-                id: nextId,
-                firstSeen: Date.now(),
-                lastSeen: Date.now(),
-                userAgent: navigator.userAgent
-            });
-            
-            // Обновляем счётчик
-            await db.ref('counters/userId').set(nextId);
-            
-            currentUserId = nextId;
-            return nextId;
-        }
-    }
-    
-    // Функция проверки и назначения администратора
-    async function checkAndSetAdmin() {
-        try {
-            // Проверяем, есть ли уже администратор в Firebase
-            const adminSnapshot = await db.ref('admin/config').once('value');
-            const adminConfig = adminSnapshot.val();
-            
-            // Если администратор уже назначен
-            if (adminConfig && adminConfig.isSet && adminConfig.adminId) {
-                // Проверяем, является ли текущий пользователь администратором
-                const user = auth.currentUser;
-                if (user) {
-                    const userSnapshot = await db.ref('users/' + user.uid).once('value');
-                    const userData = userSnapshot.val();
-                    
-                    if (userData && userData.id === adminConfig.adminId) {
-                        // Этот пользователь - администратор!
-                        isAdminMode = true;
-                        currentAdminName = "Главный администратор";
-                        currentAdminAccess = "full";
-                        showAdminBadge();
-                        showAdminVisual();
-                        await addLogEntry('admin_action', `Администратор (ID: ${adminConfig.adminId}) зашёл в игру`);
-                        console.log(`👑 Вы администратор! (ID: ${adminConfig.adminId})`);
-                    } else {
-                        isAdminMode = false;
-                        console.log(`🔒 Вы обычный пользователь. Администратор имеет ID: ${adminConfig.adminId}`);
-                    }
-                }
-                return;
-            }
-            
-            // Если администратор ещё не назначен - назначаем первого пользователя
-            const user = auth.currentUser;
-            if (user) {
-                const userId = await getOrCreateUserId();
-                
-                if (userId === 1) {
-                    // Первый пользователь становится администратором
-                    await db.ref('admin/config').set({
-                        isSet: true,
-                        adminId: 1,
-                        adminUid: user.uid,
-                        setAt: Date.now(),
-                        setByUserAgent: navigator.userAgent
-                    });
-                    
-                    isAdminMode = true;
-                    currentAdminName = "Главный администратор";
-                    currentAdminAccess = "full";
-                    showAdminBadge();
-                    showAdminVisual();
-                    await addLogEntry('admin_action', '🎉 ПЕРВЫЙ ПОЛЬЗОВАТЕЛЬ СТАЛ АДМИНИСТРАТОРОМ! (ID: 1)');
-                    console.log("👑 ПОЗДРАВЛЯЮ! Вы первый пользователь и стали АДМИНИСТРАТОРОМ!");
-                }
-            }
-        } catch (error) {
-            console.error("Ошибка при проверке администратора:", error);
-        }
-    }
-    
-    // Показать визуальные отличия для админа
-    function showAdminVisual() {
-        const gameContainer = document.getElementById('gameContainer');
-        if (gameContainer) {
-            gameContainer.classList.add('admin-mode');
-        }
-        
-        // Добавляем бейдж в правый верхний угол
-        if (!document.getElementById('adminIdBadge')) {
-            const badge = document.createElement('div');
-            badge.id = 'adminIdBadge';
-            badge.style.position = 'fixed';
-            badge.style.top = '10px';
-            badge.style.right = '10px';
-            badge.style.background = 'rgba(0,0,0,0.7)';
-            badge.style.color = '#ffaa44';
-            badge.style.padding = '4px 10px';
-            badge.style.borderRadius = '20px';
-            badge.style.fontSize = '0.7rem';
-            badge.style.fontFamily = 'monospace';
-            badge.style.zIndex = '9999';
-            badge.style.border = '1px solid #ffaa44';
-            badge.innerHTML = '👑 АДМИН | ID:1';
-            document.body.appendChild(badge);
-        }
-    }
-    
-    function showAdminBadge() {
-        if (document.getElementById('adminBadge')) return;
-        const badge = document.createElement('div');
-        badge.id = 'adminBadge';
-        badge.className = 'admin-badge';
-        badge.innerHTML = '👑 РЕЖИМ АДМИНА';
-        document.body.appendChild(badge);
-    }
-    
-    // ======================== ПАРОЛИ АДМИНОВ (запасной вариант) ========================
+    // ======================== ПАРОЛИ АДМИНОВ ========================
     const ADMIN_PASSWORDS = {
         "14881161": { name: "Главный администратор", emoji: "👑", access: "full" },
         "148867": { name: "Помощник", emoji: "⭐", access: "actions_only" }
@@ -699,6 +539,10 @@
     const questionDisplay = document.getElementById('questionDisplay');
     const answersContainer = document.getElementById('answersContainer');
     
+    let isAdminMode = false;
+    let currentAdminName = "";
+    let currentAdminAccess = "";
+    
     const loadingOverlay = document.createElement('div');
     loadingOverlay.className = 'loading-overlay';
     loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач...</div>`;
@@ -711,9 +555,7 @@
             const status = snapshot.val();
             if (status && status.closed === true) {
                 gameClosed = true;
-                if (!isAdminMode) {
-                    showGameClosedOverlay();
-                }
+                showGameClosedOverlay();
             } else {
                 gameClosed = false;
                 hideGameClosedOverlay();
@@ -724,7 +566,6 @@
     }
     
     function showGameClosedOverlay() {
-        if (isAdminMode) return;
         if (document.getElementById('gameClosedOverlay')) return;
         const overlay = document.createElement('div');
         overlay.id = 'gameClosedOverlay';
@@ -900,12 +741,15 @@
             ctx.fillText("Провода оборваны", canvas.width/2 - 70, canvas.height/2 + 50);
         }
         
-        if (gameClosed && !victoryFlag && !isAdminMode) {
+        if (gameClosed && !victoryFlag) {
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.font = "bold 24px monospace";
             ctx.fillStyle = '#ff6666';
-            ctx.fillText("🔒 ИГРА ЗАКРЫТА", canvas.width/2 - 130, canvas.height/2);
+            ctx.fillText("🔒 ИГРА ЗАКРЫТА АДМИНИСТРАТОРОМ", canvas.width/2 - 220, canvas.height/2);
+            ctx.font = "14px monospace";
+            ctx.fillStyle = '#ffaa66';
+            ctx.fillText("Попробуйте зайти позже", canvas.width/2 - 90, canvas.height/2 + 50);
         }
         
         ctx.shadowBlur = 0;
@@ -926,8 +770,7 @@
                 type: type,
                 message: message,
                 details: details,
-                adminName: currentAdminName || null,
-                userId: currentUserId
+                adminName: currentAdminName || null
             };
             await db.ref('admin/logs').push(logEntry);
         } catch (error) {
@@ -963,7 +806,7 @@
             logsContainer.innerHTML = html;
         } catch (error) {
             console.error("Ошибка загрузки логов:", error);
-            logsContainer.innerHTML = '<div style="color: #ff8866;">❌ Ошибка загрузки логов</div>';
+            logsContainer.innerHTML = '<div style="color: #ff8866;">❌ Ошибка загрузки логов. Проверьте правила Firebase!</div>';
         }
     }
     
@@ -981,10 +824,10 @@
         if (!isAdminMode) return;
         await db.ref('admin/gameStatus').set({ closed: true, closedBy: currentAdminName, closedAt: Date.now() });
         gameClosed = true;
-        if (!isAdminMode) showGameClosedOverlay();
+        showGameClosedOverlay();
         drawGame();
         await addLogEntry('admin_action', `${currentAdminName} ЗАКРЫЛ игру`, { action: 'close_game' });
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта!';
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта! Пользователи не могут зайти.';
         document.getElementById('closeGameBtn').style.display = 'none';
         document.getElementById('openGameBtn').style.display = 'inline-block';
     }
@@ -996,7 +839,7 @@
         hideGameClosedOverlay();
         drawGame();
         await addLogEntry('admin_action', `${currentAdminName} ОТКРЫЛ игру`, { action: 'open_game' });
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔓 Игра открыта!';
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔓 Игра открыта! Пользователи могут заходить.';
         document.getElementById('closeGameBtn').style.display = 'inline-block';
         document.getElementById('openGameBtn').style.display = 'none';
     }
@@ -1033,11 +876,11 @@
         }
     }
     
-    // ======================== СЕКРЕТНЫЙ ВХОД ========================
+    // ======================== СЕКРЕТНЫЙ ВХОД (ИСПРАВЛЕНО) ========================
     let tapCount = 0;
     let tapTimer = null;
     document.getElementById('secretTapArea')?.addEventListener('click', () => {
-        if(tapTimer) clearTimeout(tapTimer);
+        if(tapTimer) clearTimeout(tapTimer);  // ✅ ИСПРАВЛЕНО: было timer, стало tapTimer
         tapCount++;
         tapTimer = setTimeout(() => { tapCount = 0; }, 800);
         if(tapCount >= 5) { tapCount = 0; openAdminModal(); }
@@ -1083,13 +926,7 @@
         document.querySelector('.admin-tab[data-tab="auth"]').classList.add('active');
     }
     
-    function closeAdminModal() { 
-        adminModal.style.display = 'none';
-        isAdminMode = false;
-        if (gameClosed) {
-            showGameClosedOverlay();
-        }
-    }
+    function closeAdminModal() { adminModal.style.display = 'none'; }
     
     adminAuthBtn.addEventListener('click', async () => {
         const enteredCode = adminCodeInput.value.trim();
@@ -1128,14 +965,10 @@
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById('tab-actions').classList.add('active');
             
-            if (gameClosed) {
-                hideGameClosedOverlay();
-            }
-            
-            await addLogEntry('login_success', `Успешный вход: ${adminInfo.name} ${adminInfo.emoji}`);
+            await addLogEntry('login_success', `Успешный вход: ${adminInfo.name} ${adminInfo.emoji} (${adminInfo.access === 'full' ? 'полный доступ' : 'только действия'})`);
             
             setTimeout(() => {
-                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта";
+                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта. Используйте команды.";
             }, 3000);
         } else {
             adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД! Доступ запрещён.';
@@ -1171,7 +1004,7 @@
         victoryFlag = true;
         gameActive = false;
         waitForAnswer = true;
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ✨🏆<br>Счёт: ${score} МВт.`;
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОСЕТЬ ПОСТРОЕНА! ✨🏆<br>Счёт: ${score} МВт.`;
         drawGame();
         adminStatusMsg.innerHTML = '🌟 ПОБЕДА!';
     }
@@ -1239,7 +1072,7 @@
     }
     
     function handleAnswer(selected) {
-        if((gameClosed && !isAdminMode) || !gameActive || waitForAnswer || victoryFlag) return;
+        if(!gameActive || waitForAnswer || victoryFlag || gameClosed) return;
         const isCorrect = selected === currentProblem.correctAnswer;
         if(isCorrect) {
             score += 10;
@@ -1258,14 +1091,14 @@
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
         nextTimer = setTimeout(() => {
-            if(gameActive && !victoryFlag && health > 0 && (!gameClosed || isAdminMode)) loadNewChallenge();
+            if(gameActive && !victoryFlag && health > 0 && !gameClosed) loadNewChallenge();
             nextTimer = null;
         }, 1300);
         updateUI();
     }
     
     function loadNewChallenge() {
-        if((gameClosed && !isAdminMode) || !gameActive || victoryFlag || !gameReady) return;
+        if(!gameActive || victoryFlag || !gameReady || gameClosed) return;
         if(nextTimer) clearTimeout(nextTimer);
         waitForAnswer = false;
         currentProblem = getTaskByProgress();
@@ -1289,7 +1122,7 @@
             else if(currentProblem.title.includes("КПД")) suffix = " Вт";
             else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
             btn.innerText = `${opt}${suffix}`;
-            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && (!gameClosed || isAdminMode)) handleAnswer(opt); };
+            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && !gameClosed) handleAnswer(opt); };
             answersContainer.appendChild(btn);
         });
     }
@@ -1312,7 +1145,7 @@
     }
     
     function restart() {
-        if(gameClosed && !isAdminMode) return;
+        if(gameClosed) return;
         if(nextTimer) clearTimeout(nextTimer);
         score = 0;
         health = 3;
@@ -1330,16 +1163,8 @@
     
     // ======================== ЗАПУСК ========================
     auth.signInAnonymously().catch(console.error);
-    document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed || isAdminMode) restart(); });
-    
-    // Основная инициализация: сначала авторизация, потом проверка админа, потом загрузка задач
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            await getOrCreateUserId();
-            await checkAndSetAdmin();
-            await fetchTasksFromGitHub();
-        }
-    });
+    document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed) restart(); });
+    fetchTasksFromGitHub();
 </script>
 </body>
 </html>
