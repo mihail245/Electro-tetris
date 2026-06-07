@@ -198,7 +198,7 @@
         .question-text {
             font-size: 1.2rem;
             margin-top: 12px;
-            background: #ffdfa5;
+            background: #00000055;
             padding: 8px;
             border-radius: 28px;
         }
@@ -365,6 +365,21 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Уведомление для админа в углу */
+        .admin-badge {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #ffaa44;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-family: monospace;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
         @media (max-width: 780px) {
             .game-layout { flex-direction: column; }
             .answer-btn { padding: 10px 5px; font-size: 1.2rem; }
@@ -500,7 +515,125 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // ======================== ПАРОЛИ АДМИНОВ ========================
+    // ======================== АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ АДМИНА ПО ТЕЛЕФОНУ ========================
+    let isAdminMode = false;
+    let currentAdminName = "";
+    let currentAdminAccess = "";
+    
+    // Функция проверки, является ли устройство Poco X7 Pro
+    function isPocoX7Pro() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        
+        // Признаки телефона Poco X7 Pro
+        const pocoSignatures = [
+            "poco x7 pro",
+            "poco x7",
+            "2107119dc",  // Код модели Poco X3 Pro (пример, нужно узнать ваш)
+            "poco"
+        ];
+        
+        for (let signature of pocoSignatures) {
+            if (userAgent.includes(signature)) {
+                return true;
+            }
+        }
+        
+        // Дополнительная проверка по разрешению экрана (узнайте разрешение вашего телефона)
+        const screenWidth = window.screen.width;
+        const screenHeight = window.screen.height;
+        
+        // Типичные разрешения для Poco X7 Pro (уточните ваше)
+        if ((screenWidth === 1080 && screenHeight === 2400) || 
+            (screenWidth === 1220 && screenHeight === 2712)) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Функция для получения и сохранения администратора в Firebase
+    async function checkAndSetAdmin() {
+        try {
+            // Проверяем, есть ли уже администратор в Firebase
+            const snapshot = await db.ref('admin/deviceAdmin').once('value');
+            const existingAdmin = snapshot.val();
+            
+            // Если администратор уже назначен
+            if (existingAdmin && existingAdmin.isSet) {
+                // Проверяем, является ли текущее устройство тем самым админским
+                const currentFingerprint = await getDeviceFingerprint();
+                if (existingAdmin.deviceFingerprint === currentFingerprint) {
+                    isAdminMode = true;
+                    currentAdminName = "Главный администратор (Poco X7 Pro)";
+                    currentAdminAccess = "full";
+                    showAdminBadge();
+                    await addLogEntry('admin_action', 'Администратор зашёл со своего телефона Poco X7 Pro');
+                } else {
+                    isAdminMode = false;
+                    console.log("🔒 Администратор уже назначен на другом устройстве");
+                }
+                return;
+            }
+            
+            // Если администратор ещё не назначен
+            if (isPocoX7Pro()) {
+                // Этот телефон становится администратором
+                const deviceFingerprint = await getDeviceFingerprint();
+                await db.ref('admin/deviceAdmin').set({
+                    isSet: true,
+                    deviceFingerprint: deviceFingerprint,
+                    deviceModel: "Poco X7 Pro",
+                    setAt: Date.now(),
+                    setBy: navigator.userAgent
+                });
+                
+                isAdminMode = true;
+                currentAdminName = "Главный администратор (Poco X7 Pro)";
+                currentAdminAccess = "full";
+                showAdminBadge();
+                await addLogEntry('admin_action', '🔓 ПЕРВЫЙ ЗАХОД: Телефон Poco X7 Pro назначен администратором');
+                console.log("🎉 Вы стали администратором! (Poco X7 Pro)");
+            }
+        } catch (error) {
+            console.error("Ошибка при проверке администратора:", error);
+            // Если ошибка, пробуем также проверить по телефону локально
+            if (isPocoX7Pro()) {
+                isAdminMode = true;
+                currentAdminName = "Главный администратор (Poco X7 Pro)";
+                currentAdminAccess = "full";
+                showAdminBadge();
+            }
+        }
+    }
+    
+    // Получение уникального отпечатка устройства
+    async function getDeviceFingerprint() {
+        const userAgent = navigator.userAgent;
+        const screenRes = `${window.screen.width}x${window.screen.height}`;
+        const language = navigator.language;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        
+        // Простой fingerprint
+        return `${userAgent.substring(0, 100)}|${screenRes}|${language}|${timezone}`;
+    }
+    
+    // Показываем бейдж админа в углу
+    function showAdminBadge() {
+        if (document.getElementById('adminBadge')) return;
+        const badge = document.createElement('div');
+        badge.id = 'adminBadge';
+        badge.className = 'admin-badge';
+        badge.innerHTML = '👑 АДМИН (Poco X7 Pro)';
+        document.body.appendChild(badge);
+        
+        // Меняем цвет фона панели для админа
+        const container = document.querySelector('.game-container');
+        if (container) {
+            container.style.borderBottom = '6px solid #ffaa44';
+        }
+    }
+    
+    // ======================== ПАРОЛИ АДМИНОВ (запасной вариант) ========================
     const ADMIN_PASSWORDS = {
         "14881161": { name: "Главный администратор", emoji: "👑", access: "full" },
         "148867": { name: "Помощник", emoji: "⭐", access: "actions_only" }
@@ -517,7 +650,7 @@
     let gameActive = true;
     let victoryFlag = false;
     let usedTasks = [];
-    let gameClosed = false; // Флаг, закрыта ли игра
+    let gameClosed = false;
     
     let score = 0;
     let health = 3;
@@ -539,10 +672,6 @@
     const questionDisplay = document.getElementById('questionDisplay');
     const answersContainer = document.getElementById('answersContainer');
     
-    let isAdminMode = false;
-    let currentAdminName = "";
-    let currentAdminAccess = "";
-    
     const loadingOverlay = document.createElement('div');
     loadingOverlay.className = 'loading-overlay';
     loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач...</div>`;
@@ -555,7 +684,10 @@
             const status = snapshot.val();
             if (status && status.closed === true) {
                 gameClosed = true;
-                showGameClosedOverlay();
+                // Для админа не показываем оверлей
+                if (!isAdminMode) {
+                    showGameClosedOverlay();
+                }
             } else {
                 gameClosed = false;
                 hideGameClosedOverlay();
@@ -566,6 +698,7 @@
     }
     
     function showGameClosedOverlay() {
+        if (isAdminMode) return;
         if (document.getElementById('gameClosedOverlay')) return;
         const overlay = document.createElement('div');
         overlay.id = 'gameClosedOverlay';
@@ -577,12 +710,10 @@
         `;
         document.body.appendChild(overlay);
         
-        // Блокируем кнопки ответов
         if (answersContainer) {
             answersContainer.style.pointerEvents = 'none';
             answersContainer.style.opacity = '0.5';
         }
-        // Блокируем кнопку перезапуска
         const restartBtn = document.getElementById('restartGame');
         if (restartBtn) restartBtn.disabled = true;
     }
@@ -609,7 +740,7 @@
         healthIcon.src = healthIcons[health] || healthIcons[0];
     }
     
-    // ======================== КРАСИВОЕ РИСОВАНИЕ ========================
+    // ======================== РИСОВАНИЕ ========================
     function drawGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -717,12 +848,10 @@
         ctx.font = "16px monospace";
         ctx.fillText("⚡", 400, 265);
         
-        // Прогресс текстом
         ctx.font = "bold 14px monospace";
         ctx.fillStyle = '#ffdd99';
         ctx.fillText(`📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`, canvas.width - 150, 40);
         
-        // Победа/Поражение
         if (victoryFlag) {
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -745,16 +874,12 @@
             ctx.fillText("Провода оборваны", canvas.width/2 - 70, canvas.height/2 + 50);
         }
         
-        // Если игра закрыта админом
-        if (gameClosed && !victoryFlag) {
+        if (gameClosed && !victoryFlag && !isAdminMode) {
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.font = "bold 24px monospace";
             ctx.fillStyle = '#ff6666';
-            ctx.fillText("🔒 ИГРА ЗАКРЫТА АДМИНИСТРАТОРОМ", canvas.width/2 - 220, canvas.height/2);
-            ctx.font = "14px monospace";
-            ctx.fillStyle = '#ffaa66';
-            ctx.fillText("Попробуйте зайти позже", canvas.width/2 - 90, canvas.height/2 + 50);
+            ctx.fillText("🔒 ИГРА ЗАКРЫТА", canvas.width/2 - 130, canvas.height/2);
         }
         
         ctx.shadowBlur = 0;
@@ -811,7 +936,7 @@
             logsContainer.innerHTML = html;
         } catch (error) {
             console.error("Ошибка загрузки логов:", error);
-            logsContainer.innerHTML = '<div style="color: #ff8866;">❌ Ошибка загрузки логов. Проверьте правила Firebase!</div>';
+            logsContainer.innerHTML = '<div style="color: #ff8866;">❌ Ошибка загрузки логов</div>';
         }
     }
     
@@ -829,10 +954,10 @@
         if (!isAdminMode) return;
         await db.ref('admin/gameStatus').set({ closed: true, closedBy: currentAdminName, closedAt: Date.now() });
         gameClosed = true;
-        showGameClosedOverlay();
+        if (!isAdminMode) showGameClosedOverlay();
         drawGame();
         await addLogEntry('admin_action', `${currentAdminName} ЗАКРЫЛ игру`, { action: 'close_game' });
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта! Пользователи не могут зайти.';
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта!';
         document.getElementById('closeGameBtn').style.display = 'none';
         document.getElementById('openGameBtn').style.display = 'inline-block';
     }
@@ -844,7 +969,7 @@
         hideGameClosedOverlay();
         drawGame();
         await addLogEntry('admin_action', `${currentAdminName} ОТКРЫЛ игру`, { action: 'open_game' });
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔓 Игра открыта! Пользователи могут заходить.';
+        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔓 Игра открыта!';
         document.getElementById('closeGameBtn').style.display = 'inline-block';
         document.getElementById('openGameBtn').style.display = 'none';
     }
@@ -885,7 +1010,7 @@
     let tapCount = 0;
     let tapTimer = null;
     document.getElementById('secretTapArea')?.addEventListener('click', () => {
-        if(timer) clearTimeout(tapTimer);
+        if(tapTimer) clearTimeout(tapTimer);
         tapCount++;
         tapTimer = setTimeout(() => { tapCount = 0; }, 800);
         if(tapCount >= 5) { tapCount = 0; openAdminModal(); }
@@ -931,7 +1056,13 @@
         document.querySelector('.admin-tab[data-tab="auth"]').classList.add('active');
     }
     
-    function closeAdminModal() { adminModal.style.display = 'none'; }
+    function closeAdminModal() { 
+        adminModal.style.display = 'none';
+        isAdminMode = false;
+        if (gameClosed) {
+            showGameClosedOverlay();
+        }
+    }
     
     adminAuthBtn.addEventListener('click', async () => {
         const enteredCode = adminCodeInput.value.trim();
@@ -957,7 +1088,6 @@
                 logsTab.style.display = 'none';
             }
             
-            // Обновляем кнопки в настройках
             if (gameClosed) {
                 document.getElementById('closeGameBtn').style.display = 'none';
                 document.getElementById('openGameBtn').style.display = 'inline-block';
@@ -971,10 +1101,15 @@
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById('tab-actions').classList.add('active');
             
-            await addLogEntry('login_success', `Успешный вход: ${adminInfo.name} ${adminInfo.emoji} (${adminInfo.access === 'full' ? 'полный доступ' : 'только действия'})`);
+            // Убираем оверлей если игра закрыта
+            if (gameClosed) {
+                hideGameClosedOverlay();
+            }
+            
+            await addLogEntry('login_success', `Успешный вход: ${adminInfo.name} ${adminInfo.emoji}`);
             
             setTimeout(() => {
-                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта. Используйте команды.";
+                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта";
             }, 3000);
         } else {
             adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД! Доступ запрещён.';
@@ -1010,7 +1145,7 @@
         victoryFlag = true;
         gameActive = false;
         waitForAnswer = true;
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОСЕТЬ ПОСТРОЕНА! ✨🏆<br>Счёт: ${score} МВт.`;
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ✨🏆<br>Счёт: ${score} МВт.`;
         drawGame();
         adminStatusMsg.innerHTML = '🌟 ПОБЕДА!';
     }
@@ -1078,7 +1213,7 @@
     }
     
     function handleAnswer(selected) {
-        if(!gameActive || waitForAnswer || victoryFlag || gameClosed) return;
+        if((gameClosed && !isAdminMode) || !gameActive || waitForAnswer || victoryFlag) return;
         const isCorrect = selected === currentProblem.correctAnswer;
         if(isCorrect) {
             score += 10;
@@ -1097,14 +1232,14 @@
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
         nextTimer = setTimeout(() => {
-            if(gameActive && !victoryFlag && health > 0 && !gameClosed) loadNewChallenge();
+            if(gameActive && !victoryFlag && health > 0 && (!gameClosed || isAdminMode)) loadNewChallenge();
             nextTimer = null;
         }, 1300);
         updateUI();
     }
     
     function loadNewChallenge() {
-        if(!gameActive || victoryFlag || !gameReady || gameClosed) return;
+        if((gameClosed && !isAdminMode) || !gameActive || victoryFlag || !gameReady) return;
         if(nextTimer) clearTimeout(nextTimer);
         waitForAnswer = false;
         currentProblem = getTaskByProgress();
@@ -1128,7 +1263,7 @@
             else if(currentProblem.title.includes("КПД")) suffix = " Вт";
             else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
             btn.innerText = `${opt}${suffix}`;
-            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && !gameClosed) handleAnswer(opt); };
+            btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && (!gameClosed || isAdminMode)) handleAnswer(opt); };
             answersContainer.appendChild(btn);
         });
     }
@@ -1151,7 +1286,7 @@
     }
     
     function restart() {
-        if(gameClosed) return;
+        if(gameClosed && !isAdminMode) return;
         if(nextTimer) clearTimeout(nextTimer);
         score = 0;
         health = 3;
@@ -1169,8 +1304,12 @@
     
     // ======================== ЗАПУСК ========================
     auth.signInAnonymously().catch(console.error);
-    document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed) restart(); });
-    fetchTasksFromGitHub();
+    document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed || isAdminMode) restart(); });
+    
+    // Запускаем проверку администратора по телефону
+    checkAndSetAdmin().then(() => {
+        fetchTasksFromGitHub();
+    });
 </script>
 </body>
 </html>
