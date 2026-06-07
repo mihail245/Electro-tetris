@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Энергосеть: Математика энергетика</title>
+    <title>Математика энергетика</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
     <style>
         * {
             user-select: none;
@@ -207,13 +208,13 @@
             border: 2px solid #ffaa44;
             border-radius: 48px;
             padding: 25px 20px;
-            width: 500px;
+            width: 750px;
             max-width: 90%;
             text-align: center;
             box-shadow: 0 25px 40px black;
             color: #eee;
         }
-        .admin-card input {
+        .admin-card input, .admin-card textarea {
             width: 90%;
             padding: 12px;
             margin: 15px 0;
@@ -224,6 +225,12 @@
             font-size: 1rem;
             text-align: center;
             outline: none;
+        }
+        .admin-card textarea {
+            border-radius: 20px;
+            text-align: left;
+            resize: vertical;
+            font-family: inherit;
         }
         .admin-card button {
             background: #3a7a5a;
@@ -236,7 +243,7 @@
             cursor: pointer;
         }
         .admin-card button:active { transform: scale(0.97); }
-        .close-admin {
+        .close-admin, .delete-session-btn {
             background: #aa3e2c;
         }
         .close-game-btn {
@@ -297,26 +304,30 @@
         }
         .session-info {
             flex: 1;
-            word-break: break-all;
+            word-break: break-word;
         }
-        .session-id { font-weight: bold; color: #ffdfa5; }
+        .session-id { font-weight: bold; color: #ffdfa5; font-size: 1rem; }
         .session-meta { font-size: 0.7rem; color: #8aa; margin-top: 4px; }
+        .online-status { 
+            display: inline-block; 
+            width: 10px; 
+            height: 10px; 
+            border-radius: 50%; 
+            margin-right: 6px;
+        }
+        .online-status.online { background-color: #4caf50; box-shadow: 0 0 5px #4caf50; }
+        .online-status.offline { background-color: #888; }
         .block-btn { background: #aa3e2c; padding: 5px 12px; font-size: 0.75rem; }
         .unblock-btn { background: #3a7a5a; padding: 5px 12px; font-size: 0.75rem; }
+        .delete-session-btn { background: #6b2e1e; padding: 5px 12px; font-size: 0.75rem; margin-left: 5px; }
         .log-entry {
             padding: 8px;
             border-bottom: 1px solid #2e6b4e;
             font-family: monospace;
         }
-        .log-entry.success {
-            color: #8bc34a;
-        }
-        .log-entry.failed {
-            color: #ff8866;
-        }
-        .log-entry.admin-action {
-            color: #ffaa44;
-        }
+        .log-entry.success { color: #8bc34a; }
+        .log-entry.failed { color: #ff8866; }
+        .log-entry.admin-action { color: #ffaa44; }
         .clear-logs-btn {
             background: #aa3e2c;
             margin-top: 10px;
@@ -362,7 +373,7 @@
             .admin-tabs { flex-wrap: wrap; }
             .health-box img { width: 32px; height: 32px; }
         }
-        .game-closed-overlay {
+        .game-closed-overlay, .blocked-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -382,39 +393,33 @@
             font-weight: bold;
             text-align: center;
         }
-        .game-closed-overlay .closed-text {
-            font-size: 3rem;
-            color: #ff4444;
-            text-shadow: 0 0 10px rgba(255,0,0,0.5);
-        }
-        .game-closed-overlay .closed-subtext {
-            font-size: 1.2rem;
-            color: #ffaa66;
-        }
-        /* Overlay для заблокированного пользователя */
-        .blocked-overlay {
+        .blocked-overlay .closed-text, .game-closed-overlay .closed-text { font-size: 2.5rem; color: #ff4444; }
+        .blocked-overlay .closed-subtext { font-size: 1.2rem; color: #ffaa66; }
+        
+        /* Глобальное сообщение */
+        .global-message {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.96);
-            backdrop-filter: blur(15px);
-            z-index: 20001;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            gap: 20px;
-            color: #ff6666;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ffaa44, #ff6600);
+            color: #1e2a1c;
+            padding: 15px 30px;
+            border-radius: 60px;
             font-family: monospace;
-            font-size: 2rem;
             font-weight: bold;
+            font-size: 1.1rem;
+            z-index: 30000;
+            box-shadow: 0 0 30px rgba(255,100,0,0.5);
+            border: 2px solid #fff3c9;
             text-align: center;
+            max-width: 90%;
+            animation: slideDown 0.3s ease-out;
+            cursor: pointer;
         }
-        .blocked-overlay .closed-text {
-            font-size: 2.5rem;
-            color: #ff4444;
+        @keyframes slideDown {
+            from { top: -100px; opacity: 0; }
+            to { top: 20px; opacity: 1; }
         }
     </style>
 </head>
@@ -458,6 +463,7 @@
             <div class="admin-tab" data-tab="actions" style="display:none;">🎮 ДЕЙСТВИЯ</div>
             <div class="admin-tab" data-tab="settings" style="display:none;">⚙️ НАСТРОЙКИ</div>
             <div class="admin-tab" data-tab="sessions" style="display:none;">👥 СЕССИИ</div>
+            <div class="admin-tab" data-tab="messages" style="display:none;">💬 СООБЩЕНИЯ</div>
             <div class="admin-tab" data-tab="logs" style="display:none;">📋 ЛОГИ</div>
         </div>
         <div id="tab-auth" class="admin-tab-content">
@@ -475,17 +481,21 @@
         </div>
         <div id="tab-settings" class="admin-tab-content">
             <button id="closeGameBtn" class="close-game-btn">🔒 ЗАКРЫТЬ ИГРУ</button>
+            <button id="openGameBtn" style="background:#3a7a5a;">🔓 ОТКРЫТЬ ИГРУ</button>
             <div class="admin-status" id="settingsStatusMsg"></div>
         </div>
-        <!-- НОВАЯ ВКЛАДКА СЕССИИ (только для 14881161) -->
         <div id="tab-sessions" class="admin-tab-content">
             <div class="sessions-container" id="sessionsContainer">Загрузка пользователей...</div>
             <div class="admin-status" id="sessionsStatusMsg"></div>
         </div>
+        <div id="tab-messages" class="admin-tab-content">
+            <textarea id="globalMessageInput" rows="3" placeholder="Введите глобальное сообщение для всех игроков..."></textarea>
+            <button id="sendGlobalMessageBtn">📢 ОТПРАВИТЬ СООБЩЕНИЕ</button>
+            <button id="clearGlobalMessageBtn">🗑️ ОЧИСТИТЬ СООБЩЕНИЕ</button>
+            <div class="admin-status" id="messagesStatusMsg"></div>
+        </div>
         <div id="tab-logs" class="admin-tab-content">
-            <div class="logs-container" id="logsContainer">
-                <div style="text-align: center; color: #888;">Загрузка логов...</div>
-            </div>
+            <div class="logs-container" id="logsContainer">Загрузка логов...</div>
             <button id="clearLogsBtn" class="clear-logs-btn">🗑️ ОЧИСТИТЬ ЛОГИ</button>
         </div>
     </div>
@@ -524,9 +534,10 @@
     let optionsArray = [];
     let waitForAnswer = false;
     let nextTimer = null;
-    // Переменные для блокировки
     let currentUID = null;
     let isBlocked = false;
+    let presenceRef = null;
+    let onlineCheckInterval = null;
     
     const canvas = document.getElementById('powerCanvas');
     const ctx = canvas.getContext('2d');
@@ -547,31 +558,80 @@
     loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач...</div>`;
     document.body.appendChild(loadingOverlay);
     
-    // === ФУНКЦИИ БЛОКИРОВКИ (НОВЫЕ, НЕ ЛОМАЮТ ИГРУ) ===
-    function showBlockedOverlay() {
-        if (document.getElementById('blockedOverlay')) return;
-        const overlay = document.createElement('div');
-        overlay.id = 'blockedOverlay';
-        overlay.className = 'blocked-overlay';
-        overlay.innerHTML = `
-            <div class="closed-text">🚫 ВЫ ЗАБЛОКИРОВАНЫ 🚫</div>
-            <div class="closed-subtext">Администратор ограничил доступ к игре</div>
-            <div style="font-size: 1rem; margin-top: 20px;">Обратитесь к администратору</div>
-        `;
-        document.body.appendChild(overlay);
-        if(answersContainer) answersContainer.style.pointerEvents = 'none';
-        gameActive = false;
-        waitForAnswer = true;
-        if(nextTimer) clearTimeout(nextTimer);
+    // Конфетти при победе
+    function celebrateVictory() {
+        canvasConfetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, startVelocity: 20 });
+        setTimeout(() => {
+            canvasConfetti({ particleCount: 300, spread: 120, origin: { y: 0.5, x: 0.2 }, startVelocity: 25 });
+        }, 150);
+        setTimeout(() => {
+            canvasConfetti({ particleCount: 300, spread: 120, origin: { y: 0.5, x: 0.8 }, startVelocity: 25 });
+        }, 300);
+        setTimeout(() => {
+            canvasConfetti({ particleCount: 500, spread: 150, origin: { y: 0.4 }, startVelocity: 30, decay: 0.9 });
+        }, 500);
+        for(let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                canvasConfetti({ particleCount: 100, spread: 80, origin: { y: 0.7, x: Math.random() }, startVelocity: 15 });
+            }, 800 + i * 200);
+        }
     }
-    function hideBlockedOverlay() {
-        const overlay = document.getElementById('blockedOverlay');
-        if(overlay) overlay.remove();
-        if(answersContainer && !gameClosed && !victoryFlag) answersContainer.style.pointerEvents = 'auto';
-        if(!gameClosed && !victoryFlag && health > 0) gameActive = true;
+    
+    // Глобальное сообщение
+    let globalMessageDiv = null;
+    function showGlobalMessage(message, isError = false) {
+        if (globalMessageDiv) globalMessageDiv.remove();
+        globalMessageDiv = document.createElement('div');
+        globalMessageDiv.className = 'global-message';
+        globalMessageDiv.style.background = isError ? 'linear-gradient(135deg, #ff4444, #cc0000)' : 'linear-gradient(135deg, #ffaa44, #ff6600)';
+        globalMessageDiv.innerHTML = message;
+        globalMessageDiv.onclick = () => globalMessageDiv.remove();
+        document.body.appendChild(globalMessageDiv);
+        setTimeout(() => {
+            if (globalMessageDiv) globalMessageDiv.remove();
+        }, 8000);
     }
+    
+    // Слушатель глобальных сообщений
+    function listenGlobalMessages() {
+        db.ref('admin/globalMessage').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.text && data.text.trim()) {
+                showGlobalMessage(data.text, data.isError || false);
+            }
+        });
+    }
+    
+    // Функция получения названия устройства
+    function getDeviceName() {
+        const ua = navigator.userAgent;
+        let device = "💻 Неизвестное устройство";
+        if (/iPhone|iPad|iPod/i.test(ua)) device = "🍎 Apple " + (navigator.platform || "iOS");
+        else if (/Android/i.test(ua)) { const match = ua.match(/Android\s([\d.]+)/); device = "📱 Android" + (match ? " " + match[1] : ""); }
+        else if (/Windows/i.test(ua)) device = "💻 Windows PC";
+        else if (/Mac/i.test(ua)) device = "🍏 Mac";
+        else if (/Linux/i.test(ua)) device = "🐧 Linux";
+        if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) device += " (Chrome)";
+        else if (/Firefox/i.test(ua)) device += " (Firefox)";
+        else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) device += " (Safari)";
+        else if (/Edg/i.test(ua)) device += " (Edge)";
+        return device;
+    }
+    
+    // Онлайн статус
+    async function setOnlineStatus(uid, isOnline) {
+        if (!uid) return;
+        await db.ref(`users/${uid}/info/online`).set(isOnline);
+        await db.ref(`users/${uid}/info/lastSeen`).set(Date.now());
+        if (isOnline) {
+            await db.ref(`users/${uid}/info/lastSeenDate`).set(new Date().toLocaleString('ru-RU'));
+        }
+    }
+    
+    // Регистрация пользователя
     async function registerOrUpdateUser(uid) {
         if (!uid) return;
+        const deviceName = getDeviceName();
         const userRef = db.ref(`users/${uid}`);
         const snapshot = await userRef.child('info').once('value');
         if (!snapshot.exists()) {
@@ -579,18 +639,151 @@
                 firstSeen: Date.now(),
                 firstSeenDate: new Date().toLocaleString('ru-RU'),
                 lastSeen: Date.now(),
+                lastSeenDate: new Date().toLocaleString('ru-RU'),
                 uid: uid,
-                isBlocked: false
+                deviceName: deviceName,
+                userAgent: navigator.userAgent,
+                isBlocked: false,
+                online: true
             });
         } else {
-            await userRef.child('info').update({ lastSeen: Date.now() });
+            await userRef.child('info').update({ 
+                lastSeen: Date.now(),
+                lastSeenDate: new Date().toLocaleString('ru-RU'),
+                deviceName: deviceName,
+                userAgent: navigator.userAgent,
+                online: true
+            });
         }
         const blockSnap = await userRef.child('info/isBlocked').once('value');
         isBlocked = blockSnap.val() === true;
         if (isBlocked) showBlockedOverlay();
         else hideBlockedOverlay();
+        
+        // Настраиваем присутствие
+        if (presenceRef) presenceRef.off();
+        presenceRef = db.ref(`users/${uid}/info/online`);
+        presenceRef.onDisconnect().set(false);
     }
-    // === ДОБАВЛЕНИЕ/ЗАГРУЗКА СЕССИЙ (ТОЛЬКО ДЛЯ ГЛАВНОГО АДМИНА) ===
+    
+    function showBlockedOverlay() {
+        if (document.getElementById('blockedOverlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'blockedOverlay';
+        overlay.className = 'blocked-overlay';
+        overlay.innerHTML = `<div class="closed-text">🚫 ВЫ ЗАБЛОКИРОВАНЫ 🚫</div><div class="closed-subtext">Администратор ограничил доступ к игре</div><div style="font-size: 1rem; margin-top: 20px;">Обратитесь к администратору</div>`;
+        document.body.appendChild(overlay);
+        if(answersContainer) answersContainer.style.pointerEvents = 'none';
+        gameActive = false;
+        waitForAnswer = true;
+        if(nextTimer) clearTimeout(nextTimer);
+    }
+    
+    function hideBlockedOverlay() {
+        const overlay = document.getElementById('blockedOverlay');
+        if(overlay) overlay.remove();
+        if(answersContainer && !gameClosed && !victoryFlag) answersContainer.style.pointerEvents = 'auto';
+        if(!gameClosed && !victoryFlag && health > 0) gameActive = true;
+    }
+    
+    async function checkGameStatus() {
+        try {
+            const snapshot = await db.ref('admin/gameStatus').once('value');
+            const status = snapshot.val();
+            gameClosed = status && status.closed === true;
+            if (gameClosed) showGameClosedOverlay();
+            else hideGameClosedOverlay();
+        } catch (error) { console.error(error); }
+    }
+    
+    function showGameClosedOverlay() {
+        if (document.getElementById('gameClosedOverlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'gameClosedOverlay';
+        overlay.className = 'game-closed-overlay';
+        overlay.innerHTML = `<div class="closed-text">🔒 ИГРА ЗАКРЫТА 🔒</div><div class="closed-subtext">Администратор временно закрыл доступ</div>`;
+        document.body.appendChild(overlay);
+        if(answersContainer) answersContainer.style.pointerEvents = 'none';
+    }
+    
+    function hideGameClosedOverlay() {
+        const overlay = document.getElementById('gameClosedOverlay');
+        if(overlay) overlay.remove();
+        if(answersContainer && !isBlocked) answersContainer.style.pointerEvents = 'auto';
+    }
+    
+    function updateHealthIcon() {
+        const icons = {3:"https://i.imgur.com/rHRy49i.png",2:"https://i.imgur.com/ESGJRuM.png",1:"https://i.imgur.com/eASASjl.png",0:"https://i.imgur.com/kLlSxtl.png"};
+        healthIcon.src = icons[health] || icons[0];
+    }
+    
+    function drawGame() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+        grad.addColorStop(0,'#0d2818'); grad.addColorStop(1,'#06120c');
+        ctx.fillStyle=grad; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.shadowBlur=10;
+        ctx.fillStyle='#5a7a6a'; ctx.fillRect(80,160,15,120); ctx.fillRect(60,160,55,10); ctx.fillRect(70,140,35,25);
+        ctx.fillStyle='#aa8866'; for(let i=0;i<3;i++) ctx.fillRect(85,170+i*15,5,8);
+        ctx.fillStyle='#5a7a6a'; ctx.fillRect(650,160,15,120); ctx.fillRect(630,160,55,10); ctx.fillRect(640,140,35,25);
+        ctx.fillStyle='#aa8866'; for(let i=0;i<3;i++) ctx.fillRect(655,170+i*15,5,8);
+        const points = [{x:95,y:175},{x:200,y:165},{x:310,y:180},{x:420,y:160},{x:530,y:175},{x:650,y:170}];
+        ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y);
+        for(let i=1;i<points.length;i++) ctx.lineTo(points[i].x,points[i].y);
+        ctx.strokeStyle='#4a5b55'; ctx.lineWidth=6; ctx.stroke();
+        let totalLen=0; for(let i=0;i<points.length-1;i++) totalLen+=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y);
+        let progress=Math.min(1,correctCount/TARGET_CORRECT);
+        let built=totalLen*progress, acc=0, started=false;
+        for(let i=0;i<points.length-1;i++){
+            const p1=points[i],p2=points[i+1],seg=Math.hypot(p2.x-p1.x,p2.y-p1.y);
+            if(acc+seg<=built){ if(!started){ctx.moveTo(p1.x,p1.y);started=true;} ctx.lineTo(p2.x,p2.y); acc+=seg;}
+            else if(acc<built){ let t=(built-acc)/seg; let x=p1.x+(p2.x-p1.x)*t,y=p1.y+(p2.y-p1.y)*t; if(!started) ctx.moveTo(p1.x,p1.y); ctx.lineTo(x,y); break;}
+        }
+        ctx.strokeStyle='#ffdd66'; ctx.lineWidth=4; ctx.stroke();
+        ctx.fillStyle='#8a7a5a'; ctx.fillRect(380,240,60,40);
+        ctx.fillStyle='#aa9a7a'; ctx.fillRect(390,230,40,15);
+        ctx.fillStyle='#ccaa66'; ctx.font="16px monospace"; ctx.fillText("⚡",400,265);
+        ctx.font="bold 14px monospace"; ctx.fillStyle='#ffdd99'; ctx.fillText(`📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`,canvas.width-150,40);
+        if(victoryFlag){
+            ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.font="bold 28px monospace"; ctx.fillStyle='#ffdd66'; ctx.fillText("🏆 ЭНЕРГОСЕТЬ ПОСТРОЕНА! 🏆",canvas.width/2-200,canvas.height/2);
+        }
+        if(health<=0 && !victoryFlag){
+            ctx.fillStyle='rgba(80,0,0,0.6)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.font="bold 26px monospace"; ctx.fillStyle='#ff8866'; ctx.fillText("💥 СЕТЬ РУХНУЛА! 💥",canvas.width/2-160,canvas.height/2);
+        }
+        if(gameClosed && !victoryFlag){
+            ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.font="bold 24px monospace"; ctx.fillStyle='#ff6666'; ctx.fillText("🔒 ИГРА ЗАКРЫТА",canvas.width/2-150,canvas.height/2);
+        }
+        ctx.shadowBlur=0;
+    }
+    
+    async function addLogEntry(type, message, details={}) {
+        try { await db.ref('admin/logs').push({timestamp:Date.now(), date:new Date().toLocaleString('ru-RU'), type, message, details, adminName:currentAdminName||null}); } catch(e){}
+    }
+    
+    async function loadLogs() {
+        const container=document.getElementById('logsContainer');
+        if(!container) return;
+        try{
+            const snap=await db.ref('admin/logs').once('value');
+            const logs=snap.val();
+            if(!logs){ container.innerHTML='<div style="color:#888;">📭 Логов нет</div>'; return; }
+            const arr=Object.entries(logs).map(([k,v])=>({key:k,...v})).sort((a,b)=>b.timestamp-a.timestamp).slice(0,50);
+            let html='';
+            for(const log of arr){
+                let cls='',icon='';
+                if(log.type==='login_success') {cls='success'; icon='✅';}
+                else if(log.type==='login_failed') {cls='failed'; icon='❌';}
+                else if(log.type==='admin_action') {cls='admin-action'; icon='🎮';}
+                else icon='📝';
+                html+=`<div class="log-entry ${cls}">${icon} <strong>${log.date}</strong><br>${log.message}</div>`;
+            }
+            container.innerHTML=html;
+        }catch(e){ container.innerHTML='<div style="color:#ff8866;">❌ Ошибка</div>';}
+    }
+    
     async function loadSessions() {
         if (!isAdminMode || currentAdminAccess !== 'full') return;
         const container = document.getElementById('sessionsContainer');
@@ -599,7 +792,7 @@
             const snapshot = await db.ref('users').once('value');
             const users = snapshot.val();
             if (!users) {
-                container.innerHTML = '<div style="color:#888;">Нет зарегистрированных пользователей</div>';
+                container.innerHTML = '<div style="color:#888;">Нет пользователей</div>';
                 return;
             }
             let html = '';
@@ -607,342 +800,137 @@
                 const info = users[uid]?.info || {};
                 const isBlockedUser = info.isBlocked === true;
                 const firstSeenDate = info.firstSeenDate || 'неизвестно';
+                const deviceName = info.deviceName || 'Неизвестное устройство';
+                const lastSeen = info.lastSeenDate || 'неизвестно';
+                const isOnline = info.online === true;
+                const statusIcon = isOnline ? '<span class="online-status online"></span>' : '<span class="online-status offline"></span>';
+                const statusText = isOnline ? '🟢 Онлайн' : '⚫ Оффлайн';
+                
                 html += `
                     <div class="session-item" data-uid="${uid}">
                         <div class="session-info">
-                            <div class="session-id">🆔 ${uid.substring(0,12)}...</div>
-                            <div class="session-meta">📅 Первый вход: ${firstSeenDate}</div>
+                            <div class="session-id">${statusIcon} ${deviceName}</div>
+                            <div class="session-meta">📅 Первый вход: ${firstSeenDate}<br>🕒 Последний: ${lastSeen}<br>📡 ${statusText}${!isOnline ? ' <span style="color:#ffaa66;">(перезагрузите сайт)</span>' : ''}<br>🆔 ID: ${uid.substring(0,8)}...</div>
                         </div>
                         <div>
                             ${isBlockedUser ? 
-                                `<button class="unblock-btn" data-uid="${uid}">🔓 РАЗБЛОКИРОВАТЬ</button>` : 
-                                `<button class="block-btn" data-uid="${uid}">🔒 ЗАБЛОКИРОВАТЬ</button>`}
+                                `<button class="unblock-btn" data-uid="${uid}">🔓 РАЗБЛОК</button>` : 
+                                `<button class="block-btn" data-uid="${uid}">🔒 БЛОК</button>`}
+                            <button class="delete-session-btn" data-uid="${uid}">🗑️ УДАЛИТЬ</button>
                         </div>
                     </div>
                 `;
             }
             container.innerHTML = html;
-            // Навешиваем обработчики
-            document.querySelectorAll('.block-btn').forEach(btn => {
-                btn.addEventListener('click', () => toggleBlock(btn.dataset.uid, true));
-            });
-            document.querySelectorAll('.unblock-btn').forEach(btn => {
-                btn.addEventListener('click', () => toggleBlock(btn.dataset.uid, false));
-            });
+            document.querySelectorAll('.block-btn').forEach(btn => btn.addEventListener('click', () => toggleBlock(btn.dataset.uid, true)));
+            document.querySelectorAll('.unblock-btn').forEach(btn => btn.addEventListener('click', () => toggleBlock(btn.dataset.uid, false)));
+            document.querySelectorAll('.delete-session-btn').forEach(btn => btn.addEventListener('click', () => deleteSession(btn.dataset.uid)));
         } catch (error) {
-            console.error("Ошибка загрузки сессий:", error);
+            console.error(error);
             container.innerHTML = '<div style="color:#ff8866;">❌ Ошибка загрузки</div>';
         }
     }
+    
+    async function deleteSession(uid) {
+        if (!isAdminMode || currentAdminAccess !== 'full') return;
+        if (confirm(`Удалить сессию пользователя ${uid.substring(0,8)}...? Все данные будут потеряны!`)) {
+            await db.ref(`users/${uid}`).remove();
+            await addLogEntry('admin_action', `${currentAdminName} УДАЛИЛ сессию пользователя ${uid}`);
+            loadSessions();
+            const msgDiv = document.getElementById('sessionsStatusMsg');
+            if (msgDiv) {
+                msgDiv.innerHTML = `🗑️ Пользователь удалён`;
+                setTimeout(() => { if(msgDiv) msgDiv.innerHTML = ''; }, 2000);
+            }
+        }
+    }
+    
     async function toggleBlock(uid, block) {
         if (!isAdminMode || currentAdminAccess !== 'full') return;
         await db.ref(`users/${uid}/info/isBlocked`).set(block);
-        await addLogEntry('admin_action', `${currentAdminName} ${block ? 'ЗАБЛОКИРОВАЛ' : 'РАЗБЛОКИРОВАЛ'} пользователя ${uid}`);
-        // Если блокируем/разблокируем текущего игрока
+        await addLogEntry('admin_action', `${currentAdminName} ${block ? 'ЗАБЛОКИРОВАЛ' : 'РАЗБЛОКИРОВАЛ'} ${uid}`);
         if (currentUID === uid) {
             isBlocked = block;
-            if (block) {
-                showBlockedOverlay();
-                gameActive = false;
-                waitForAnswer = true;
-                if (nextTimer) clearTimeout(nextTimer);
-                drawGame();
-            } else {
-                hideBlockedOverlay();
-                if (!gameClosed && !victoryFlag && health > 0) {
-                    gameActive = true;
-                    loadNewChallenge();
-                }
-                drawGame();
-            }
+            if (block) { showBlockedOverlay(); gameActive = false; waitForAnswer = true; if(nextTimer) clearTimeout(nextTimer); drawGame(); }
+            else { hideBlockedOverlay(); if (!gameClosed && !victoryFlag && health > 0) { gameActive = true; loadNewChallenge(); } drawGame(); }
         }
-        loadSessions(); // обновляем список
+        loadSessions();
         const msgDiv = document.getElementById('sessionsStatusMsg');
-        if (msgDiv) {
-            msgDiv.innerHTML = block ? `🔒 Пользователь ${uid.substring(0,8)} заблокирован` : `🔓 Пользователь ${uid.substring(0,8)} разблокирован`;
-            setTimeout(() => { if(msgDiv) msgDiv.innerHTML = ''; }, 2000);
-        }
+        if (msgDiv) { msgDiv.innerHTML = block ? `🔒 Заблокирован` : `🔓 Разблокирован`; setTimeout(() => { if(msgDiv) msgDiv.innerHTML = ''; }, 2000); }
     }
-    // ===== ВСЕ ОСТАЛЬНЫЕ ФУНКЦИИ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ =====
-    async function checkGameStatus() {
-        try {
-            const snapshot = await db.ref('admin/gameStatus').once('value');
-            const status = snapshot.val();
-            if (status && status.closed === true) {
-                gameClosed = true;
-                showGameClosedOverlay();
-            } else {
-                gameClosed = false;
-                hideGameClosedOverlay();
-            }
-        } catch (error) {
-            console.error("Ошибка проверки статуса игры:", error);
-        }
+    
+    async function sendGlobalMessage() {
+        if (!isAdminMode) return;
+        const input = document.getElementById('globalMessageInput');
+        const text = input.value.trim();
+        if (!text) { document.getElementById('messagesStatusMsg').innerHTML = '⚠️ Введите сообщение'; return; }
+        await db.ref('admin/globalMessage').set({ text: text, isError: false, from: currentAdminName, timestamp: Date.now() });
+        await addLogEntry('admin_action', `${currentAdminName} отправил глобальное сообщение: "${text.substring(0,50)}"`);
+        document.getElementById('messagesStatusMsg').innerHTML = '✅ Сообщение отправлено!';
+        input.value = '';
+        setTimeout(() => { const msg = document.getElementById('messagesStatusMsg'); if(msg) msg.innerHTML = ''; }, 3000);
     }
-    function showGameClosedOverlay() {
-        if (document.getElementById('gameClosedOverlay')) return;
-        const overlay = document.createElement('div');
-        overlay.id = 'gameClosedOverlay';
-        overlay.className = 'game-closed-overlay';
-        overlay.innerHTML = `
-            <div class="closed-text">🔒 ИГРА ЗАКРЫТА 🔒</div>
-            <div class="closed-subtext">Администратор временно закрыл доступ</div>
-            <div style="font-size: 0.8rem; margin-top: 20px;">Попробуйте зайти позже</div>
-        `;
-        document.body.appendChild(overlay);
-        if (answersContainer) {
-            answersContainer.style.pointerEvents = 'none';
-            answersContainer.style.opacity = '0.5';
-        }
-        const restartBtn = document.getElementById('restartGame');
-        if (restartBtn) restartBtn.disabled = true;
+    
+    async function clearGlobalMessage() {
+        if (!isAdminMode) return;
+        await db.ref('admin/globalMessage').set(null);
+        await addLogEntry('admin_action', `${currentAdminName} очистил глобальное сообщение`);
+        document.getElementById('messagesStatusMsg').innerHTML = '🗑️ Сообщение удалено';
+        setTimeout(() => { const msg = document.getElementById('messagesStatusMsg'); if(msg) msg.innerHTML = ''; }, 2000);
     }
-    function hideGameClosedOverlay() {
-        const overlay = document.getElementById('gameClosedOverlay');
-        if (overlay) overlay.remove();
-        if (answersContainer && !isBlocked) {
-            answersContainer.style.pointerEvents = 'auto';
-            answersContainer.style.opacity = '1';
-        }
-        const restartBtn = document.getElementById('restartGame');
-        if (restartBtn) restartBtn.disabled = false;
-    }
-    function updateHealthIcon() {
-        const healthIcons = {
-            3: "https://i.imgur.com/rHRy49i.png",
-            2: "https://i.imgur.com/ESGJRuM.png",
-            1: "https://i.imgur.com/eASASjl.png",
-            0: "https://i.imgur.com/kLlSxtl.png"
-        };
-        healthIcon.src = healthIcons[health] || healthIcons[0];
-    }
-    function drawGame() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);   
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#0d2818');
-        gradient.addColorStop(1, '#06120c');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#5a7a6a';
-        ctx.fillRect(80, 160, 15, 120);
-        ctx.fillRect(60, 160, 55, 10);
-        ctx.fillRect(70, 140, 35, 25);
-        ctx.fillStyle = '#aa8866';
-        for(let i = 0; i < 3; i++) {
-            ctx.fillRect(85, 170 + i * 15, 5, 8);
-        }
-        ctx.fillStyle = '#5a7a6a';
-        ctx.fillRect(650, 160, 15, 120);
-        ctx.fillRect(630, 160, 55, 10);
-        ctx.fillRect(640, 140, 35, 25);
-        ctx.fillStyle = '#aa8866';
-        for(let i = 0; i < 3; i++) {
-            ctx.fillRect(655, 170 + i * 15, 5, 8);
-        }
-        const points = [
-            {x: 95, y: 175}, {x: 200, y: 165}, {x: 310, y: 180},
-            {x: 420, y: 160}, {x: 530, y: 175}, {x: 650, y: 170}
-        ];
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.strokeStyle = '#4a5b55';
-        ctx.lineWidth = 6;
-        ctx.stroke();
-        let totalLength = 0;
-        for (let i = 0; i < points.length - 1; i++) {
-            totalLength += Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
-        }
-        let progress = Math.min(1, correctCount / TARGET_CORRECT);
-        let builtLength = totalLength * progress;
-        ctx.beginPath();
-        let accumulated = 0;
-        let started = false;
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i];
-            const p2 = points[i+1];
-            const segmentLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-            if (accumulated + segmentLength <= builtLength) {
-                if (!started) {
-                    ctx.moveTo(p1.x, p1.y);
-                    started = true;
-                }
-                ctx.lineTo(p2.x, p2.y);
-                accumulated += segmentLength;
-            } else if (accumulated < builtLength) {
-                const t = (builtLength - accumulated) / segmentLength;
-                const x = p1.x + (p2.x - p1.x) * t;
-                const y = p1.y + (p2.y - p1.y) * t;
-                if (!started) ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(x, y);
-                break;
-            }
-        }
-        ctx.strokeStyle = '#ffdd66';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        if (progress > 0 && !victoryFlag && health > 0 && !gameClosed) {
-            for (let i = 0; i < 6; i++) {
-                const sparkX = 150 + (correctCount / TARGET_CORRECT) * 500 + Math.sin(Date.now() / 500 + i) * 4;
-                const sparkY = 170 + Math.cos(Date.now() / 400 + i) * 5;
-                ctx.fillStyle = `rgba(255, 200, 80, ${0.3 + Math.sin(Date.now() / 300) * 0.2})`;
-                ctx.beginPath();
-                ctx.arc(sparkX, sparkY, 2, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-        ctx.fillStyle = '#8a7a5a';
-        ctx.fillRect(380, 240, 60, 40);
-        ctx.fillStyle = '#aa9a7a';
-        ctx.fillRect(390, 230, 40, 15);
-        ctx.fillStyle = '#ccaa66';
-        ctx.font = "16px monospace";
-        ctx.fillText("⚡", 400, 265);
-        ctx.font = "bold 14px monospace";
-        ctx.fillStyle = '#ffdd99';
-        ctx.fillText(`📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`, canvas.width - 150, 40);
-        if (victoryFlag) {
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.font = "bold 28px monospace";
-            ctx.fillStyle = '#ffdd66';
-            ctx.fillText("🏆 ЭНЕРГОСЕТЬ ПОСТРОЕНА! 🏆", canvas.width/2 - 200, canvas.height/2);
-            ctx.font = "16px monospace";
-            ctx.fillStyle = '#ffeeaa';
-            ctx.fillText("ГОРОД ПОЛУЧАЕТ ЭНЕРГИЮ!", canvas.width/2 - 140, canvas.height/2 + 50);
-        }
-        if (health <= 0 && !victoryFlag) {
-            ctx.fillStyle = 'rgba(80,0,0,0.6)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.font = "bold 26px monospace";
-            ctx.fillStyle = '#ff8866';
-            ctx.fillText("💥 СЕТЬ РУХНУЛА! 💥", canvas.width/2 - 160, canvas.height/2);
-            ctx.font = "14px monospace";
-            ctx.fillStyle = '#ffaaaa';
-            ctx.fillText("Провода оборваны", canvas.width/2 - 70, canvas.height/2 + 50);
-        }
-        if (gameClosed && !victoryFlag) {
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.font = "bold 24px monospace";
-            ctx.fillStyle = '#ff6666';
-            ctx.fillText("🔒 ИГРА ЗАКРЫТА АДМИНИСТРАТОРОМ", canvas.width/2 - 220, canvas.height/2);
-            ctx.font = "14px monospace";
-            ctx.fillStyle = '#ffaa66';
-            ctx.fillText("Попробуйте зайти позже", canvas.width/2 - 90, canvas.height/2 + 50);
-        }
-        ctx.shadowBlur = 0;
-    }
-    function flashEffect(type) {
-        ctx.fillStyle = type === 'correct' ? 'rgba(100,255,100,0.4)' : 'rgba(255,100,100,0.4)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        setTimeout(() => drawGame(), 150);
-    }
-    async function addLogEntry(type, message, details = {}) {
-        try {
-            const logEntry = {
-                timestamp: Date.now(),
-                date: new Date().toLocaleString('ru-RU'),
-                type: type,
-                message: message,
-                details: details,
-                adminName: currentAdminName || null
-            };
-            await db.ref('admin/logs').push(logEntry);
-        } catch (error) {
-            console.error("Ошибка логирования:", error);
-        }
-    }
-    async function loadLogs() {
-        const logsContainer = document.getElementById('logsContainer');
-        if (!logsContainer) return;
-        try {
-            logsContainer.innerHTML = '<div style="text-align: center; color: #ffaa66;">⏳ Загрузка логов...</div>';
-            const snapshot = await db.ref('admin/logs').once('value');
-            const logs = snapshot.val();
-            if (!logs || Object.keys(logs).length === 0) {
-                logsContainer.innerHTML = '<div style="text-align: center; color: #888;">📭 Логов пока нет</div>';
-                return;
-            }
-            const logsArray = Object.entries(logs).map(([key, value]) => ({ key, ...value }));
-            logsArray.sort((a, b) => b.timestamp - a.timestamp);
-            const recentLogs = logsArray.slice(0, 50);
-            let html = '';
-            for (const log of recentLogs) {
-                let logClass = '', icon = '';
-                switch(log.type) {
-                    case 'login_success': logClass = 'success'; icon = '✅'; break;
-                    case 'login_failed': logClass = 'failed'; icon = '❌'; break;
-                    case 'admin_action': logClass = 'admin-action'; icon = '🎮'; break;
-                    default: icon = '📝';
-                }
-                html += `<div class="log-entry ${logClass}">${icon} <strong>${log.date}</strong><br>${log.message}</div>`;
-            }
-            logsContainer.innerHTML = html;
-        } catch (error) {
-            console.error("Ошибка загрузки логов:", error);
-            logsContainer.innerHTML = '<div style="color: #ff8866;">❌ Ошибка загрузки логов. Проверьте правила Firebase!</div>';
-        }
-    }
+    
     async function clearLogs() {
-        if (confirm('Вы уверены, что хотите очистить все логи?')) {
-            await db.ref('admin/logs').remove();
-            await addLogEntry('admin_action', 'Очистка логов администратором', { action: 'clear_logs' });
-            loadLogs();
-            if (adminStatusMsg) adminStatusMsg.innerHTML = '🗑️ Логи очищены!';
-        }
+        if (confirm('Очистить логи?')) { await db.ref('admin/logs').remove(); await addLogEntry('admin_action','Очистка логов'); loadLogs(); }
     }
+    
     async function closeGame() {
         if (!isAdminMode) return;
         await db.ref('admin/gameStatus').set({ closed: true, closedBy: currentAdminName, closedAt: Date.now() });
-        gameClosed = true;
-        showGameClosedOverlay();
-        drawGame();
-        await addLogEntry('admin_action', `${currentAdminName} ЗАКРЫЛ игру`, { action: 'close_game' });
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '🔒 Игра закрыта! Пользователи не могут зайти.';
-        document.getElementById('closeGameBtn').style.display = 'none';
+        gameClosed = true; showGameClosedOverlay(); drawGame();
+        await addLogEntry('admin_action',`${currentAdminName} ЗАКРЫЛ игру`);
+        document.getElementById('settingsStatusMsg').innerHTML = '🔒 Игра закрыта';
     }
+    
+    async function openGame() {
+        if (!isAdminMode) return;
+        await db.ref('admin/gameStatus').set({ closed: false });
+        gameClosed = false; hideGameClosedOverlay(); drawGame();
+        await addLogEntry('admin_action',`${currentAdminName} ОТКРЫЛ игру`);
+        document.getElementById('settingsStatusMsg').innerHTML = '🔓 Игра открыта';
+    }
+    
     const GITHUB_TASKS_URL = "https://raw.githubusercontent.com/mihail245/Electro-tetris/refs/heads/main/tasks.json";
     async function fetchTasksFromGitHub() {
         try {
-            const response = await fetch(GITHUB_TASKS_URL, { cache: "no-store" });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
+            const resp = await fetch(GITHUB_TASKS_URL, { cache: "no-store" });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (Array.isArray(data) && data.length) {
                 ALL_TASKS = data;
-                TASKS_LEVEL_1 = ALL_TASKS.filter(task => task.level === 1);
-                TASKS_LEVEL_2 = ALL_TASKS.filter(task => task.level === 2);
-                TASKS_LEVEL_3 = ALL_TASKS.filter(task => task.level === 3);
+                TASKS_LEVEL_1 = ALL_TASKS.filter(t => t.level === 1);
+                TASKS_LEVEL_2 = ALL_TASKS.filter(t => t.level === 2);
+                TASKS_LEVEL_3 = ALL_TASKS.filter(t => t.level === 3);
                 gameReady = true;
                 loadingOverlay.style.opacity = '0';
-                setTimeout(() => {
-                    if(loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
-                }, 500);
+                setTimeout(() => loadingOverlay.remove(), 500);
                 await checkGameStatus();
                 restart();
-            } else {
-                throw new Error("Нет задач или неверный формат");
-            }
-        } catch (error) {
-            loadingOverlay.innerHTML = `<div style="color: #ff8866;">❌ ОШИБКА ЗАГРУЗКИ</div>
-                                        <div>${error.message}</div>
-                                        <button id="reloadBtn" style="margin-top:30px;padding:10px 25px;background:#ffaa44;border:none;border-radius:40px;cursor:pointer;">🔄 ПОВТОРИТЬ</button>`;
+            } else throw new Error("Нет задач");
+        } catch(e) {
+            loadingOverlay.innerHTML = `<div style="color:#ff8866;">❌ ОШИБКА</div><div>${e.message}</div><button id="reloadBtn" style="margin-top:30px;">🔄 ПОВТОРИТЬ</button>`;
             document.getElementById('reloadBtn')?.addEventListener('click', () => location.reload());
             gameReady = false;
         }
     }
-    let tapCount = 0;
-    let tapTimer = null;
+    
+    let tapCount=0, tapTimer=null;
     document.getElementById('secretTapArea')?.addEventListener('click', () => {
         if(tapTimer) clearTimeout(tapTimer);
         tapCount++;
         tapTimer = setTimeout(() => { tapCount = 0; }, 800);
         if(tapCount >= 5) { tapCount = 0; openAdminModal(); }
     });
+    
     const adminModal = document.getElementById('adminModal');
     const adminCodeInput = document.getElementById('adminCodeInput');
     const adminAuthBtn = document.getElementById('adminAuthBtn');
@@ -953,13 +941,13 @@
     const actionsTab = document.querySelector('.admin-tab[data-tab="actions"]');
     const settingsTab = document.querySelector('.admin-tab[data-tab="settings"]');
     const sessionsTab = document.querySelector('.admin-tab[data-tab="sessions"]');
+    const messagesTab = document.querySelector('.admin-tab[data-tab="messages"]');
     const logsTab = document.querySelector('.admin-tab[data-tab="logs"]');
+    
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
-            if (tabId === 'logs' && currentAdminAccess !== 'full') return;
-            if (tabId === 'settings' && currentAdminAccess !== 'full') return;
-            if (tabId === 'sessions' && currentAdminAccess !== 'full') return;
+            if ((tabId === 'logs' || tabId === 'settings' || tabId === 'sessions' || tabId === 'messages') && currentAdminAccess !== 'full') return;
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -968,71 +956,53 @@
             if (tabId === 'sessions') loadSessions();
         });
     });
+    
     function openAdminModal() {
         adminModal.style.display = 'flex';
         adminCodeInput.value = '';
         adminLoginMsg.innerHTML = 'Введите код администратора';
-        adminLoginMsg.style.color = '#ffaa66';
-        if (adminStatusMsg) adminStatusMsg.innerHTML = '';
-        if (settingsStatusMsg) settingsStatusMsg.innerHTML = '';
-        document.querySelectorAll('.admin-tab').forEach(t => {
-            if (t.dataset.tab !== 'auth') t.style.display = 'none';
-        });
+        document.querySelectorAll('.admin-tab').forEach(t => { if(t.dataset.tab !== 'auth') t.style.display = 'none'; });
         document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById('tab-auth').classList.add('active');
-        document.querySelector('.admin-tab[data-tab="auth"]').classList.add('active');
     }
+    
     function closeAdminModal() { adminModal.style.display = 'none'; }
+    
     adminAuthBtn.addEventListener('click', async () => {
-        const enteredCode = adminCodeInput.value.trim();
-        if (!enteredCode) {
-            adminLoginMsg.innerHTML = '❌ Введите код!';
-            return;
-        }
-        const adminInfo = ADMIN_PASSWORDS[enteredCode];
-        if (adminInfo) {
-            isAdminMode = true;
-            currentAdminName = adminInfo.name;
-            currentAdminAccess = adminInfo.access;
-            adminLoginMsg.innerHTML = `✅ ДОСТУП РАЗРЕШЁН! (${adminInfo.name})`;
-            adminLoginMsg.style.color = '#8bc34a';
-            adminStatusMsg.innerHTML = `Добро пожаловать, ${adminInfo.name}! ⚡`;
-            actionsTab.style.display = 'block';
-            if (adminInfo.access === 'full') {
-                settingsTab.style.display = 'block';
-                logsTab.style.display = 'block';
-                sessionsTab.style.display = 'block';
+        const code = adminCodeInput.value.trim();
+        const info = ADMIN_PASSWORDS[code];
+        if (info) {
+            isAdminMode = true; currentAdminName = info.name; currentAdminAccess = info.access;
+            adminLoginMsg.innerHTML = `✅ ДОСТУП (${info.name})`;
+            adminStatusMsg.innerHTML = `Добро пожаловать, ${info.name}!`;
+            document.querySelectorAll('.admin-tab').forEach(t => { if(t.dataset.tab !== 'auth') t.style.display = 'block'; });
+            if (info.access !== 'full') {
+                settingsTab.style.display = 'none'; logsTab.style.display = 'none'; sessionsTab.style.display = 'none'; messagesTab.style.display = 'none';
             } else {
-                settingsTab.style.display = 'none';
-                logsTab.style.display = 'none';
-                sessionsTab.style.display = 'none';
-            }
-            if (gameClosed) {
-                document.getElementById('closeGameBtn').style.display = 'none';
-            } else {
-                document.getElementById('closeGameBtn').style.display = 'inline-block';
+                settingsTab.style.display = 'block'; logsTab.style.display = 'block'; sessionsTab.style.display = 'block'; messagesTab.style.display = 'block';
             }
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
             actionsTab.classList.add('active');
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById('tab-actions').classList.add('active');
-            await addLogEntry('login_success', `Успешный вход: ${adminInfo.name} ${adminInfo.emoji} (${adminInfo.access === 'full' ? 'полный доступ' : 'только действия'})`);
-            setTimeout(() => {
-                if(messageDiv && !victoryFlag && gameActive) messageDiv.innerHTML = "💡 Админ-панель открыта. Используйте команды.";
-            }, 3000);
+            await addLogEntry('login_success', `Вход: ${info.name} (${info.access})`);
         } else {
-            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД! Доступ запрещён.';
-            adminLoginMsg.style.color = '#ff8866';
-            await addLogEntry('login_failed', `Неудачная попытка входа: ${enteredCode}`);
+            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД!';
+            await addLogEntry('login_failed', `Неудачная попытка: ${code}`);
         }
     });
+    
     adminCloseBtn.addEventListener('click', closeAdminModal);
     document.getElementById('clearLogsBtn')?.addEventListener('click', clearLogs);
     document.getElementById('closeGameBtn')?.addEventListener('click', closeGame);
+    document.getElementById('openGameBtn')?.addEventListener('click', openGame);
+    document.getElementById('sendGlobalMessageBtn')?.addEventListener('click', sendGlobalMessage);
+    document.getElementById('clearGlobalMessageBtn')?.addEventListener('click', clearGlobalMessage);
+    
     async function adminInstantWin() {
-        if(!isAdminMode) { adminStatusMsg.innerHTML = '⛔ Нет прав.'; return; }
-        if(victoryFlag) { adminStatusMsg.innerHTML = '🏆 Уже победа!'; return; }
-        await addLogEntry('admin_action', `${currentAdminName} использовал мгновенную победу`);
+        if(!isAdminMode) return;
+        if(victoryFlag) return;
+        await addLogEntry('admin_action', `${currentAdminName} мгновенная победа`);
         if(nextTimer) clearTimeout(nextTimer);
         while(correctCount < TARGET_CORRECT) { correctCount++; score += 10; }
         scoreSpan.innerText = score;
@@ -1040,79 +1010,61 @@
         victoryFlag = true;
         gameActive = false;
         waitForAnswer = true;
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОСЕТЬ ПОСТРОЕНА! ✨🏆<br>Счёт: ${score} МВт.`;
+        messageDiv.innerHTML = `🏆 ПОБЕДА! ${score} МВт`;
+        celebrateVictory();
         drawGame();
         adminStatusMsg.innerHTML = '🌟 ПОБЕДА!';
     }
+    
     async function adminAddLife() {
-        if(!isAdminMode) { adminStatusMsg.innerHTML = '⛔ Нет прав.'; return; }
-        if(health < 5) {
-            await addLogEntry('admin_action', `${currentAdminName} добавил жизнь`);
-            health++;
-            updateHealthIcon();
-            messageDiv.innerHTML = `❤️ +1 жизнь!`;
-            drawGame();
-            adminStatusMsg.innerHTML = '❤️ +1 жизнь';
-        }
+        if(!isAdminMode) return;
+        if(health < 5) { health++; updateHealthIcon(); messageDiv.innerHTML = '❤️ +1 жизнь!'; drawGame(); adminStatusMsg.innerHTML = '❤️ +1 жизнь'; await addLogEntry('admin_action',`${currentAdminName} добавил жизнь`);}
     }
+    
     document.getElementById('instaWinsBtn')?.addEventListener('click', adminInstantWin);
     document.getElementById('addLivesBtn')?.addEventListener('click', adminAddLife);
+    
     function getTaskByProgress() {
-        let availableTasks = [];
-        if (correctCount < 5) availableTasks = TASKS_LEVEL_1.filter(t => !usedTasks.includes(t));
-        else if (correctCount < 10) availableTasks = TASKS_LEVEL_2.filter(t => !usedTasks.includes(t));
-        else availableTasks = TASKS_LEVEL_3.filter(t => !usedTasks.includes(t));
-        if (availableTasks.length === 0) {
-            if (correctCount < 5) availableTasks = [...TASKS_LEVEL_1];
-            else if (correctCount < 10) availableTasks = [...TASKS_LEVEL_2];
-            else availableTasks = [...TASKS_LEVEL_3];
+        let arr = [];
+        if (correctCount < 5) arr = TASKS_LEVEL_1.filter(t => !usedTasks.includes(t));
+        else if (correctCount < 10) arr = TASKS_LEVEL_2.filter(t => !usedTasks.includes(t));
+        else arr = TASKS_LEVEL_3.filter(t => !usedTasks.includes(t));
+        if (arr.length === 0) {
+            if (correctCount < 5) arr = [...TASKS_LEVEL_1];
+            else if (correctCount < 10) arr = [...TASKS_LEVEL_2];
+            else arr = [...TASKS_LEVEL_3];
         }
-        const task = availableTasks[Math.floor(Math.random() * availableTasks.length)];
+        const task = arr[Math.floor(Math.random() * arr.length)];
         usedTasks.push(task);
         return { title: task.title, equation: task.eq, question: task.question, correctAnswer: task.correct, hint: task.hint };
     }
+    
     function generateOptions(correct) {
         let opts = new Set([correct]);
-        while(opts.size < 4) {
-            let delta = Math.floor(Math.random() * 21) - 10;
-            let cand = correct + delta;
-            if(cand < 1) cand = correct + Math.floor(Math.random() * 10) + 1;
-            if(cand > 0 && cand < 50000) opts.add(cand);
-        }
+        while(opts.size < 4) { let delta = Math.floor(Math.random() * 21) - 10; let cand = correct + delta; if(cand < 1) cand = correct + Math.floor(Math.random() * 10) + 1; if(cand > 0 && cand < 50000) opts.add(cand); }
         return Array.from(opts).sort(() => Math.random() - 0.5);
     }
-    function updateUI() {
-        bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`;
-        if (!victoryFlag && gameActive && gameReady && !gameClosed && !isBlocked) {
-            messageDiv.innerHTML = `📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`;
-        }
-        drawGame();
-    }
+    
+    function updateUI() { bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`; if (!victoryFlag && gameActive && gameReady && !gameClosed && !isBlocked) messageDiv.innerHTML = `📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`; drawGame(); }
+    
     function handleAnswer(selected) {
         if(!gameActive || waitForAnswer || victoryFlag || gameClosed || isBlocked) return;
-        const isCorrect = selected === currentProblem.correctAnswer;
-        if(isCorrect) {
-            score += 10;
-            scoreSpan.innerText = score;
-            correctCount++;
-            messageDiv.innerHTML = `✅ ВЕРНО! +10 МВт | ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`;
-            flashEffect('correct');
+        const correct = selected === currentProblem.correctAnswer;
+        if(correct) {
+            score += 10; scoreSpan.innerText = score; correctCount++;
+            messageDiv.innerHTML = `✅ ВЕРНО! +10 МВт | ${correctCount}/${TARGET_CORRECT}`; flashEffect('correct');
             if(correctCount >= TARGET_CORRECT) { victoryGame(); return; }
         } else {
-            health--;
-            updateHealthIcon();
-            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint}`;
-            flashEffect('wrong');
+            health--; updateHealthIcon();
+            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint}`; flashEffect('wrong');
             if(health <= 0) { gameDefeat(); return; }
         }
         waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        nextTimer = setTimeout(() => {
-            if(gameActive && !victoryFlag && health > 0 && !gameClosed && !isBlocked) loadNewChallenge();
-            nextTimer = null;
-        }, 1300);
+        nextTimer = setTimeout(() => { if(gameActive && !victoryFlag && health > 0 && !gameClosed && !isBlocked) loadNewChallenge(); nextTimer = null; }, 1300);
         updateUI();
     }
+    
     function loadNewChallenge() {
         if(!gameActive || victoryFlag || !gameReady || gameClosed || isBlocked) return;
         if(nextTimer) clearTimeout(nextTimer);
@@ -1125,57 +1077,56 @@
         messageDiv.innerHTML = `💡 ${currentProblem.hint}`;
         drawGame();
     }
+    
     function renderAnswerButtons() {
         answersContainer.innerHTML = '';
         optionsArray.forEach(opt => {
-            const btn = document.createElement('div');
-            btn.className = 'answer-btn';
-            let suffix = "";
-            if(currentProblem.title.includes("МОЩНОСТЬ")) suffix = " Вт";
-            else if(currentProblem.title.includes("ОМА")) suffix = " Ω";
-            else if(currentProblem.title.includes("СОЕДИНЕНИЕ")) suffix = " Ω";
-            else if(currentProblem.title.includes("КПД")) suffix = " Вт";
-            else if(currentProblem.title.includes("РАБОТА")) suffix = " Дж";
-            btn.innerText = `${opt}${suffix}`;
+            const btn = document.createElement('div'); btn.className = 'answer-btn';
+            let suff = "";
+            if(currentProblem.title.includes("МОЩНОСТЬ")) suff = " Вт";
+            else if(currentProblem.title.includes("ОМА")) suff = " Ω";
+            else if(currentProblem.title.includes("СОЕДИНЕНИЕ")) suff = " Ω";
+            else if(currentProblem.title.includes("КПД")) suff = " Вт";
+            else if(currentProblem.title.includes("РАБОТА")) suff = " Дж";
+            btn.innerText = `${opt}${suff}`;
             btn.onclick = () => { if(!waitForAnswer && gameActive && !victoryFlag && !gameClosed && !isBlocked) handleAnswer(opt); };
             answersContainer.appendChild(btn);
         });
     }
+    
     function victoryGame() {
-        victoryFlag = true;
-        gameActive = false;
-        waitForAnswer = true;
+        victoryFlag = true; gameActive = false; waitForAnswer = true;
         if(nextTimer) clearTimeout(nextTimer);
-        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ЭНЕРГОСЕТЬ ПОСТРОЕНА! ✨🏆<br>Счёт: ${score} МВт.`;
-       drawGame();
-    }
-    function gameDefeat() {
-        gameActive = false;
-        waitForAnswer = true;
-        if(nextTimer) clearTimeout(nextTimer);
-        messageDiv.innerHTML = `💥 КОЛЛАПС! Вы дошли до ${correctCount}/15. Перезапустите. 💥`;
+        messageDiv.innerHTML = `🏆✨ ПОБЕДА! ${score} МВт ✨🏆`;
+        celebrateVictory();
         drawGame();
     }
+    
+    function gameDefeat() { gameActive = false; waitForAnswer = true; if(nextTimer) clearTimeout(nextTimer); messageDiv.innerHTML = `💥 КОЛЛАПС! ${correctCount}/15. Перезапустите.`; drawGame(); }
+    
     function restart() {
         if(gameClosed || isBlocked) return;
         if(nextTimer) clearTimeout(nextTimer);
-        score = 0;
-        health = 3;
-        correctCount = 0;
-        gameActive = true;
-        victoryFlag = false;
-        waitForAnswer = false;
-        usedTasks = [];
-        scoreSpan.innerText = "0";
-        updateHealthIcon();
-        updateUI();
-        if(gameReady && ALL_TASKS.length > 0) loadNewChallenge();
+        score = 0; health = 3; correctCount = 0; gameActive = true; victoryFlag = false; waitForAnswer = false; usedTasks = [];
+        scoreSpan.innerText = "0"; updateHealthIcon(); updateUI();
+        if(gameReady && ALL_TASKS.length) loadNewChallenge();
         drawGame();
     }
+    
+    function flashEffect(type) {
+        ctx.fillStyle = type === 'correct' ? 'rgba(100,255,100,0.4)' : 'rgba(255,100,100,0.4)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        setTimeout(() => drawGame(), 150);
+    }
+    
     auth.signInAnonymously().then(async (cred) => {
         currentUID = cred.user.uid;
         await registerOrUpdateUser(currentUID);
+        listenGlobalMessages();
+        setInterval(async () => { if (currentUID) await setOnlineStatus(currentUID, true); }, 30000);
+        window.addEventListener('beforeunload', () => { if (currentUID) setOnlineStatus(currentUID, false); });
     }).catch(console.error);
+    
     document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed && !isBlocked) restart(); });
     fetchTasksFromGitHub();
 </script>
