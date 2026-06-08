@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Математика энергетика</title>
+    <title>Математика энергетика - Стройка моста</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -37,7 +37,6 @@
             box-shadow: 0 20px 35px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
             padding: 20px 24px 30px 24px;
             border-bottom: 6px solid #3a7a5a;
-            transition: all 0.2s;
         }
         .game-layout {
             display: flex;
@@ -180,6 +179,7 @@
             background: #ffdfa5;
             padding: 8px;
             border-radius: 28px;
+            color: #1e2a1c;
         }
         .badge-power {
             display: inline-block;
@@ -396,7 +396,6 @@
         .blocked-overlay .closed-text, .game-closed-overlay .closed-text { font-size: 2.5rem; color: #ff4444; }
         .blocked-overlay .closed-subtext { font-size: 1.2rem; color: #ffaa66; }
         
-        /* Глобальное сообщение */
         .global-message {
             position: fixed;
             top: 20px;
@@ -537,7 +536,6 @@
     let currentUID = null;
     let isBlocked = false;
     let presenceRef = null;
-    let onlineCheckInterval = null;
     
     const canvas = document.getElementById('powerCanvas');
     const ctx = canvas.getContext('2d');
@@ -558,7 +556,6 @@
     loadingOverlay.innerHTML = `<div class="spinner"></div><div>Загрузка задач...</div>`;
     document.body.appendChild(loadingOverlay);
     
-    // Конфетти при победе
     function celebrateVictory() {
         canvasConfetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, startVelocity: 20 });
         setTimeout(() => {
@@ -577,7 +574,6 @@
         }
     }
     
-    // Глобальное сообщение
     let globalMessageDiv = null;
     function showGlobalMessage(message, isError = false) {
         if (globalMessageDiv) globalMessageDiv.remove();
@@ -592,7 +588,6 @@
         }, 8000);
     }
     
-    // Слушатель глобальных сообщений
     function listenGlobalMessages() {
         db.ref('admin/globalMessage').on('value', (snapshot) => {
             const data = snapshot.val();
@@ -602,7 +597,6 @@
         });
     }
     
-    // Функция получения названия устройства
     function getDeviceName() {
         const ua = navigator.userAgent;
         let device = "💻 Неизвестное устройство";
@@ -618,7 +612,6 @@
         return device;
     }
     
-    // Онлайн статус
     async function setOnlineStatus(uid, isOnline) {
         if (!uid) return;
         await db.ref(`users/${uid}/info/online`).set(isOnline);
@@ -628,7 +621,6 @@
         }
     }
     
-    // Регистрация пользователя
     async function registerOrUpdateUser(uid) {
         if (!uid) return;
         const deviceName = getDeviceName();
@@ -660,7 +652,6 @@
         if (isBlocked) showBlockedOverlay();
         else hideBlockedOverlay();
         
-        // Настраиваем присутствие
         if (presenceRef) presenceRef.off();
         presenceRef = db.ref(`users/${uid}/info/online`);
         presenceRef.onDisconnect().set(false);
@@ -717,33 +708,77 @@
         healthIcon.src = icons[health] || icons[0];
     }
     
+    // ========== ГЛАВНОЕ ИСПРАВЛЕНИЕ: МОСТ ЗАКРАШИВАЕТСЯ ПОСТЕПЕННО ==========
     function drawGame() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
         const grad = ctx.createLinearGradient(0,0,0,canvas.height);
         grad.addColorStop(0,'#0d2818'); grad.addColorStop(1,'#06120c');
         ctx.fillStyle=grad; ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.shadowBlur=10;
+        
+        // Опоры моста
         ctx.fillStyle='#5a7a6a'; ctx.fillRect(80,160,15,120); ctx.fillRect(60,160,55,10); ctx.fillRect(70,140,35,25);
         ctx.fillStyle='#aa8866'; for(let i=0;i<3;i++) ctx.fillRect(85,170+i*15,5,8);
         ctx.fillStyle='#5a7a6a'; ctx.fillRect(650,160,15,120); ctx.fillRect(630,160,55,10); ctx.fillRect(640,140,35,25);
         ctx.fillStyle='#aa8866'; for(let i=0;i<3;i++) ctx.fillRect(655,170+i*15,5,8);
+        
+        // Точки моста
         const points = [{x:95,y:175},{x:200,y:165},{x:310,y:180},{x:420,y:160},{x:530,y:175},{x:650,y:170}];
+        
+        // Рисуем контур моста (серый)
         ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y);
         for(let i=1;i<points.length;i++) ctx.lineTo(points[i].x,points[i].y);
         ctx.strokeStyle='#4a5b55'; ctx.lineWidth=6; ctx.stroke();
-        let totalLen=0; for(let i=0;i<points.length-1;i++) totalLen+=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y);
-        let progress=Math.min(1,correctCount/TARGET_CORRECT);
-        let built=totalLen*progress, acc=0, started=false;
+        
+        // РАСЧЁТ ЗАКРАШЕННОЙ ЧАСТИ (ПОСТЕПЕННО!)
+        let totalLen=0; 
+        for(let i=0;i<points.length-1;i++) totalLen+=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y);
+        
+        // Прогресс: сколько секций моста построено (каждый правильный ответ = 1 секция)
+        let progress = Math.min(1, correctCount / TARGET_CORRECT);
+        let built = totalLen * progress;
+        
+        // Рисуем закрашенную часть моста (золотую)
+        let acc = 0, started = false;
+        ctx.beginPath();
         for(let i=0;i<points.length-1;i++){
             const p1=points[i],p2=points[i+1],seg=Math.hypot(p2.x-p1.x,p2.y-p1.y);
-            if(acc+seg<=built){ if(!started){ctx.moveTo(p1.x,p1.y);started=true;} ctx.lineTo(p2.x,p2.y); acc+=seg;}
-            else if(acc<built){ let t=(built-acc)/seg; let x=p1.x+(p2.x-p1.x)*t,y=p1.y+(p2.y-p1.y)*t; if(!started) ctx.moveTo(p1.x,p1.y); ctx.lineTo(x,y); break;}
+            if(acc+seg<=built){ 
+                if(!started){ctx.moveTo(p1.x,p1.y);started=true;} 
+                ctx.lineTo(p2.x,p2.y); 
+                acc+=seg;
+            } else if(acc<built){ 
+                let t=(built-acc)/seg; 
+                let x=p1.x+(p2.x-p1.x)*t,y=p1.y+(p2.y-p1.y)*t; 
+                if(!started) ctx.moveTo(p1.x,p1.y); 
+                ctx.lineTo(x,y); 
+                break;
+            }
         }
-        ctx.strokeStyle='#ffdd66'; ctx.lineWidth=4; ctx.stroke();
+        ctx.strokeStyle='#ffdd66'; ctx.lineWidth=5; ctx.stroke();
+        
+        // Дополнительный эффект - светящиеся шары на построенных секциях
+        for(let i = 0; i < correctCount; i++) {
+            let segmentProgress = i / TARGET_CORRECT;
+            let pos = getPointAtLength(points, totalLen * segmentProgress);
+            if(pos) {
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffcc33';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffaa';
+                ctx.fill();
+            }
+        }
+        
+        // Домик/подстанция
         ctx.fillStyle='#8a7a5a'; ctx.fillRect(380,240,60,40);
         ctx.fillStyle='#aa9a7a'; ctx.fillRect(390,230,40,15);
         ctx.fillStyle='#ccaa66'; ctx.font="16px monospace"; ctx.fillText("⚡",400,265);
         ctx.font="bold 14px monospace"; ctx.fillStyle='#ffdd99'; ctx.fillText(`📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`,canvas.width-150,40);
+        
         if(victoryFlag){
             ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.font="bold 28px monospace"; ctx.fillStyle='#ffdd66'; ctx.fillText("🏆 ЭНЕРГОСЕТЬ ПОСТРОЕНА! 🏆",canvas.width/2-200,canvas.height/2);
@@ -757,6 +792,24 @@
             ctx.font="bold 24px monospace"; ctx.fillStyle='#ff6666'; ctx.fillText("🔒 ИГРА ЗАКРЫТА",canvas.width/2-150,canvas.height/2);
         }
         ctx.shadowBlur=0;
+    }
+    
+    // Вспомогательная функция для получения точки на кривой
+    function getPointAtLength(points, length) {
+        let totalLen = 0;
+        for(let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i], p2 = points[i+1];
+            const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if(length <= totalLen + segLen) {
+                const t = (length - totalLen) / segLen;
+                return {
+                    x: p1.x + (p2.x - p1.x) * t,
+                    y: p1.y + (p2.y - p1.y) * t
+                };
+            }
+            totalLen += segLen;
+        }
+        return points[points.length - 1];
     }
     
     async function addLogEntry(type, message, details={}) {
@@ -810,7 +863,7 @@
                     <div class="session-item" data-uid="${uid}">
                         <div class="session-info">
                             <div class="session-id">${statusIcon} ${deviceName}</div>
-                            <div class="session-meta">📅 Первый вход: ${firstSeenDate}<br>🕒 Последний: ${lastSeen}<br>📡 ${statusText}${!isOnline ? ' <span style="color:#ffaa66;">(перезагрузите сайт)</span>' : ''}<br>🆔 ID: ${uid.substring(0,8)}...</div>
+                            <div class="session-meta">📅 Первый вход: ${firstSeenDate}<br>🕒 Последний: ${lastSeen}<br>📡 ${statusText}<br>🆔 ID: ${uid.substring(0,8)}...</div>
                         </div>
                         <div>
                             ${isBlockedUser ? 
@@ -833,15 +886,10 @@
     
     async function deleteSession(uid) {
         if (!isAdminMode || currentAdminAccess !== 'full') return;
-        if (confirm(`Удалить сессию пользователя ${uid.substring(0,8)}...? Все данные будут потеряны!`)) {
+        if (confirm(`Удалить сессию пользователя ${uid.substring(0,8)}...?`)) {
             await db.ref(`users/${uid}`).remove();
             await addLogEntry('admin_action', `${currentAdminName} УДАЛИЛ сессию пользователя ${uid}`);
             loadSessions();
-            const msgDiv = document.getElementById('sessionsStatusMsg');
-            if (msgDiv) {
-                msgDiv.innerHTML = `🗑️ Пользователь удалён`;
-                setTimeout(() => { if(msgDiv) msgDiv.innerHTML = ''; }, 2000);
-            }
         }
     }
     
@@ -851,32 +899,30 @@
         await addLogEntry('admin_action', `${currentAdminName} ${block ? 'ЗАБЛОКИРОВАЛ' : 'РАЗБЛОКИРОВАЛ'} ${uid}`);
         if (currentUID === uid) {
             isBlocked = block;
-            if (block) { showBlockedOverlay(); gameActive = false; waitForAnswer = true; if(nextTimer) clearTimeout(nextTimer); drawGame(); }
-            else { hideBlockedOverlay(); if (!gameClosed && !victoryFlag && health > 0) { gameActive = true; loadNewChallenge(); } drawGame(); }
+            if (block) { showBlockedOverlay(); gameActive = false; }
+            else { hideBlockedOverlay(); if (!gameClosed && !victoryFlag && health > 0) { gameActive = true; loadNewChallenge(); } }
+            drawGame();
         }
         loadSessions();
-        const msgDiv = document.getElementById('sessionsStatusMsg');
-        if (msgDiv) { msgDiv.innerHTML = block ? `🔒 Заблокирован` : `🔓 Разблокирован`; setTimeout(() => { if(msgDiv) msgDiv.innerHTML = ''; }, 2000); }
     }
     
     async function sendGlobalMessage() {
         if (!isAdminMode) return;
         const input = document.getElementById('globalMessageInput');
         const text = input.value.trim();
-        if (!text) { document.getElementById('messagesStatusMsg').innerHTML = '⚠️ Введите сообщение'; return; }
+        if (!text) return;
         await db.ref('admin/globalMessage').set({ text: text, isError: false, from: currentAdminName, timestamp: Date.now() });
-        await addLogEntry('admin_action', `${currentAdminName} отправил глобальное сообщение: "${text.substring(0,50)}"`);
-        document.getElementById('messagesStatusMsg').innerHTML = '✅ Сообщение отправлено!';
+        await addLogEntry('admin_action', `${currentAdminName} отправил сообщение: "${text.substring(0,50)}"`);
+        document.getElementById('messagesStatusMsg').innerHTML = '✅ Отправлено!';
         input.value = '';
-        setTimeout(() => { const msg = document.getElementById('messagesStatusMsg'); if(msg) msg.innerHTML = ''; }, 3000);
+        setTimeout(() => { const msg = document.getElementById('messagesStatusMsg'); if(msg) msg.innerHTML = ''; }, 2000);
     }
     
     async function clearGlobalMessage() {
         if (!isAdminMode) return;
         await db.ref('admin/globalMessage').set(null);
-        await addLogEntry('admin_action', `${currentAdminName} очистил глобальное сообщение`);
-        document.getElementById('messagesStatusMsg').innerHTML = '🗑️ Сообщение удалено';
-        setTimeout(() => { const msg = document.getElementById('messagesStatusMsg'); if(msg) msg.innerHTML = ''; }, 2000);
+        await addLogEntry('admin_action', `${currentAdminName} очистил сообщение`);
+        document.getElementById('messagesStatusMsg').innerHTML = '🗑️ Удалено';
     }
     
     async function clearLogs() {
@@ -888,7 +934,6 @@
         await db.ref('admin/gameStatus').set({ closed: true, closedBy: currentAdminName, closedAt: Date.now() });
         gameClosed = true; showGameClosedOverlay(); drawGame();
         await addLogEntry('admin_action',`${currentAdminName} ЗАКРЫЛ игру`);
-        document.getElementById('settingsStatusMsg').innerHTML = '🔒 Игра закрыта';
     }
     
     async function openGame() {
@@ -896,7 +941,6 @@
         await db.ref('admin/gameStatus').set({ closed: false });
         gameClosed = false; hideGameClosedOverlay(); drawGame();
         await addLogEntry('admin_action',`${currentAdminName} ОТКРЫЛ игру`);
-        document.getElementById('settingsStatusMsg').innerHTML = '🔓 Игра открыта';
     }
     
     const GITHUB_TASKS_URL = "https://raw.githubusercontent.com/mihail245/Electro-tetris/refs/heads/main/tasks.json";
@@ -935,9 +979,6 @@
     const adminCodeInput = document.getElementById('adminCodeInput');
     const adminAuthBtn = document.getElementById('adminAuthBtn');
     const adminCloseBtn = document.getElementById('adminCloseBtn');
-    const adminStatusMsg = document.getElementById('adminStatusMsg');
-    const adminLoginMsg = document.getElementById('adminLoginMsg');
-    const settingsStatusMsg = document.getElementById('settingsStatusMsg');
     const actionsTab = document.querySelector('.admin-tab[data-tab="actions"]');
     const settingsTab = document.querySelector('.admin-tab[data-tab="settings"]');
     const sessionsTab = document.querySelector('.admin-tab[data-tab="sessions"]');
@@ -960,7 +1001,7 @@
     function openAdminModal() {
         adminModal.style.display = 'flex';
         adminCodeInput.value = '';
-        adminLoginMsg.innerHTML = 'Введите код администратора';
+        document.getElementById('adminLoginMsg').innerHTML = 'Введите код администратора';
         document.querySelectorAll('.admin-tab').forEach(t => { if(t.dataset.tab !== 'auth') t.style.display = 'none'; });
         document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById('tab-auth').classList.add('active');
@@ -973,8 +1014,8 @@
         const info = ADMIN_PASSWORDS[code];
         if (info) {
             isAdminMode = true; currentAdminName = info.name; currentAdminAccess = info.access;
-            adminLoginMsg.innerHTML = `✅ ДОСТУП (${info.name})`;
-            adminStatusMsg.innerHTML = `Добро пожаловать, ${info.name}!`;
+            document.getElementById('adminLoginMsg').innerHTML = `✅ ДОСТУП (${info.name})`;
+            document.getElementById('adminStatusMsg').innerHTML = `Добро пожаловать, ${info.name}!`;
             document.querySelectorAll('.admin-tab').forEach(t => { if(t.dataset.tab !== 'auth') t.style.display = 'block'; });
             if (info.access !== 'full') {
                 settingsTab.style.display = 'none'; logsTab.style.display = 'none'; sessionsTab.style.display = 'none'; messagesTab.style.display = 'none';
@@ -987,7 +1028,7 @@
             document.getElementById('tab-actions').classList.add('active');
             await addLogEntry('login_success', `Вход: ${info.name} (${info.access})`);
         } else {
-            adminLoginMsg.innerHTML = '❌ НЕВЕРНЫЙ КОД!';
+            document.getElementById('adminLoginMsg').innerHTML = '❌ НЕВЕРНЫЙ КОД!';
             await addLogEntry('login_failed', `Неудачная попытка: ${code}`);
         }
     });
@@ -1013,12 +1054,11 @@
         messageDiv.innerHTML = `🏆 ПОБЕДА! ${score} МВт`;
         celebrateVictory();
         drawGame();
-        adminStatusMsg.innerHTML = '🌟 ПОБЕДА!';
     }
     
     async function adminAddLife() {
         if(!isAdminMode) return;
-        if(health < 5) { health++; updateHealthIcon(); messageDiv.innerHTML = '❤️ +1 жизнь!'; drawGame(); adminStatusMsg.innerHTML = '❤️ +1 жизнь'; await addLogEntry('admin_action',`${currentAdminName} добавил жизнь`);}
+        if(health < 5) { health++; updateHealthIcon(); messageDiv.innerHTML = '❤️ +1 жизнь!'; drawGame(); await addLogEntry('admin_action',`${currentAdminName} добавил жизнь`);}
     }
     
     document.getElementById('instaWinsBtn')?.addEventListener('click', adminInstantWin);
@@ -1045,18 +1085,25 @@
         return Array.from(opts).sort(() => Math.random() - 0.5);
     }
     
-    function updateUI() { bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`; if (!victoryFlag && gameActive && gameReady && !gameClosed && !isBlocked) messageDiv.innerHTML = `📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`; drawGame(); }
+    function updateUI() { 
+        bridgeProgressSpan.innerText = `${correctCount}/${TARGET_CORRECT}`; 
+        if (!victoryFlag && gameActive && gameReady && !gameClosed && !isBlocked) messageDiv.innerHTML = `📡 ПРОГРЕСС: ${correctCount}/${TARGET_CORRECT}`; 
+        drawGame(); 
+    }
     
     function handleAnswer(selected) {
         if(!gameActive || waitForAnswer || victoryFlag || gameClosed || isBlocked) return;
         const correct = selected === currentProblem.correctAnswer;
         if(correct) {
-            score += 10; scoreSpan.innerText = score; correctCount++;
-            messageDiv.innerHTML = `✅ ВЕРНО! +10 МВт | ${correctCount}/${TARGET_CORRECT}`; flashEffect('correct');
+            score += 10; scoreSpan.innerText = score; 
+            correctCount++;  // <-- ЭТО УВЕЛИЧИВАЕТ ПРОГРЕСС МОСТА!
+            messageDiv.innerHTML = `✅ ВЕРНО! +10 МВт | ${correctCount}/${TARGET_CORRECT}`; 
+            flashEffect('correct');
             if(correctCount >= TARGET_CORRECT) { victoryGame(); return; }
         } else {
             health--; updateHealthIcon();
-            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint}`; flashEffect('wrong');
+            messageDiv.innerHTML = `❌ ОШИБКА! Ответ: ${currentProblem.correctAnswer}. ${currentProblem.hint}`; 
+            flashEffect('wrong');
             if(health <= 0) { gameDefeat(); return; }
         }
         waitForAnswer = true;
