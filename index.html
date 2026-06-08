@@ -1129,13 +1129,6 @@
     
     document.getElementById('restartGame').addEventListener('click', () => { if(!gameClosed && !isBlocked) restart(); });
     fetchTasksFromGitHub();
-    // разместите код перед закрывающим тегом body
-<script async src="https://gamepush.com/sdk/gamepush.js?projectId=28492&publicToken=c1h9GVSWIhYCD9EmVDu5Y5bj5ouwMQLz&callback=onGPInit"></script>
-<script>
-    window.onGPInit = function (gp) {
-        // Все возможности GamePush доступны здесь
-    }
-</script>
 </script>
 </body>
 </html>
